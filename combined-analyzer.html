@@ -6,9 +6,6 @@
   <title>Combined Analyzer — Breaches Overview</title>
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,800&display=swap" rel="stylesheet">
   <link href="styles.css" rel="stylesheet">
-  <style>
-    .drop-zone.drag-over { border-color: var(--primary) !important; background: oklch(from var(--primary) l c h / 0.06) !important; }
-  </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -62,13 +59,13 @@
         <div class="upload-card">
           <h3>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-            V2 Breaches File
+            Breaches file
           </h3>
           <div class="drop-zone" id="dz-breaches">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div>Drop Excel file here or <strong>browse</strong></div>
-            <small>Supports .xlsx / .xls</small>
-            <input type="file" id="breachesFiles" accept=".xlsx,.xls">
+            <div class="dz-label">Drop .xlsx Breaches files here</div>
+            <div class="dz-hint">Supports .xlsx / .xls</div>
+            <input id="breachesFiles" type="file" accept=".xlsx,.xls" multiple />
           </div>
           <div id="breachesStatus" class="status-tag status-idle">No file loaded</div>
         </div>
@@ -76,13 +73,13 @@
         <div class="upload-card">
           <h3>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-            3093 SLA File
+            SLA file
           </h3>
           <div class="drop-zone" id="dz-sla">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div>Drop CSV file here or <strong>browse</strong></div>
-            <small>Supports .csv</small>
-            <input type="file" id="slaFiles" accept=".csv">
+            <div class="dz-label">Drop .csv or .xlsx SLA files here</div>
+            <div class="dz-hint">Supports .csv / .xlsx / .xls</div>
+            <input id="slaFiles" type="file" accept=".csv,.xlsx,.xls" multiple />
           </div>
           <div id="slaStatus" class="status-tag status-idle">No file loaded</div>
         </div>
@@ -113,8 +110,8 @@
         <label>Source</label>
         <select id="filterSource">
           <option value="">All sources</option>
-          <option value="v2">V2 Breaches</option>
-          <option value="sla">3093 SLA</option>
+          <option value="breaches">Breaches file</option>
+          <option value="sla">SLA file</option>
         </select>
       </div>
       <div class="filter-group">
@@ -135,14 +132,14 @@
         <div class="kpi-sub">across both sources</div>
       </div>
       <div class="kpi kpi-warn">
-        <div class="kpi-label">V2 Breaches</div>
+        <div class="kpi-label">Breaches file</div>
         <div class="kpi-value" id="kpiV2">—</div>
-        <div class="kpi-sub">from Excel file</div>
+        <div class="kpi-sub">from Excel</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">3093 Breaches</div>
+        <div class="kpi-label">SLA file</div>
         <div class="kpi-value" id="kpiSla">—</div>
-        <div class="kpi-sub">from CSV file</div>
+        <div class="kpi-sub">from CSV/XLSX</div>
       </div>
       <div class="kpi kpi-ok">
         <div class="kpi-label">Total Rows</div>
@@ -269,17 +266,19 @@
 })();
 
 /* ── Drag-drop setup ──────────────────────────────────────────── */
-// FIX 2 & 3: Forward dropped files to the hidden <input> and guard against
-// dragleave flickering caused by cursor entering child elements
 ['dz-breaches','dz-sla'].forEach(id=>{
   const el=document.getElementById(id);
   const inputId=id==='dz-breaches'?'breachesFiles':'slaFiles';
-  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
-  // FIX 3 — only remove class when cursor truly leaves the zone, not a child element
+
+  el.addEventListener('dragover',e=>{
+    e.preventDefault();
+    el.classList.add('drag-over');
+  });
+
   el.addEventListener('dragleave',e=>{
     if(!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
   });
-  // FIX 2 — forward DataTransfer files to the hidden <input> and trigger its change handler
+
   el.addEventListener('drop',e=>{
     e.preventDefault();
     el.classList.remove('drag-over');
@@ -289,7 +288,7 @@
     input.files=dt.files;
     input.dispatchEvent(new Event('change',{bubbles:true}));
   });
-  // Click on zone triggers file browse
+
   el.addEventListener('click',()=>document.getElementById(inputId).click());
 });
 
@@ -317,18 +316,35 @@ document.getElementById('breachesFiles').addEventListener('change',function(){
 document.getElementById('slaFiles').addEventListener('change',function(){
   const f=this.files[0]; if(!f) return;
   setStatus('slaStatus','loading','Reading…');
+  const ext=f.name.split('.').pop().toLowerCase();
   const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const results=Papa.parse(e.target.result,{header:true,skipEmptyLines:true,dynamicTyping:false});
-      slaData=parseSlaRows(results.data);
-      setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
-      checkReady();
-    }catch(err){
-      setStatus('slaStatus','error','Error: '+err.message);
-    }
-  };
-  reader.readAsText(f);
+  if(ext==='csv'){
+    reader.onload=e=>{
+      try{
+        const results=Papa.parse(e.target.result,{header:true,skipEmptyLines:true,dynamicTyping:false});
+        slaData=parseSlaRows(results.data);
+        setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
+        checkReady();
+      }catch(err){
+        setStatus('slaStatus','error','Error: '+err.message);
+      }
+    };
+    reader.readAsText(f);
+  } else {
+    reader.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+        slaData=parseSlaRows(data);
+        setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
+        checkReady();
+      }catch(err){
+        setStatus('slaStatus','error','Error: '+err.message);
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  }
 });
 
 /* ── Parsers ──────────────────────────────────────────────────── */
@@ -345,7 +361,7 @@ function parseBreachesWorkbook(wb){
       const slaTarget=parseFloat(r['SLA Target']||r['sla_target']||r['Target']||8)||8;
       const elapsed=resolved&&created?(resolved-created)/3600000:null;
       const breached=elapsed!=null?elapsed>slaTarget:true;
-      rows.push({ticket,source:'v2',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r});
+      rows.push({ticket,source:'breaches',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r});
     });
   });
   return rows;
@@ -371,7 +387,7 @@ function parseDate(val){
 }
 
 function monthStr(d){
-  if(!d) return 'Unknown';
+  if(!d) return '';
   return d.toLocaleString('default',{month:'short',year:'numeric'});
 }
 
@@ -435,7 +451,7 @@ function renderAll(){
 /* ── KPIs ─────────────────────────────────────────────────────── */
 function renderKPIs(data){
   const breaches=data.filter(r=>r.breached);
-  const v2b=data.filter(r=>r.source==='v2'&&r.breached);
+  const v2b=data.filter(r=>r.source==='breaches'&&r.breached);
   const slab=data.filter(r=>r.source==='sla'&&r.breached);
   const missing=data.filter(r=>!r.resolved);
   const rate=data.length?((breaches.length/data.length)*100).toFixed(1):'0';
@@ -459,7 +475,6 @@ function renderAlerts(data){
   else alerts.push({level:'stable',icon:'🟢',title:`Breach rate within acceptable range: ${rate.toFixed(1)}%`,desc:`${breaches.length} of ${total} records breached.`});
   const missing=data.filter(r=>!r.resolved);
   if(missing.length) alerts.push({level:'warning',icon:'⚠️',title:`${missing.length} records missing resolution date`,desc:'These records have no KSL/resolved timestamp and may still be open.'});
-  // Top breaching queue
   const qCounts={};
   breaches.forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
   const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1])[0];
@@ -486,27 +501,23 @@ function renderCharts(data){
   const textColor=isDark?'#cdccca':'#28251d';
   const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
   const defaults={responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:textColor,font:{size:11}}},tooltip:{backgroundColor:isDark?'#1c1b19':'#fff',titleColor:textColor,bodyColor:textColor,borderColor:isDark?'#393836':'#d4d1ca',borderWidth:1}},scales:{x:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}}}};
-  // By month
   const byMonth={};
   data.forEach(r=>{if(!byMonth[r.month])byMonth[r.month]={total:0,breach:0};byMonth[r.month].total++;if(r.breached)byMonth[r.month].breach++;});
-  const months=Object.keys(byMonth).sort();
+  const months=Object.keys(byMonth).filter(Boolean).sort();
   charts.month=new Chart(document.getElementById('chartMonth'),{type:'bar',data:{labels:months,datasets:[{label:'Breaches',data:months.map(m=>byMonth[m].breach),backgroundColor:'rgba(161,44,123,0.7)',borderRadius:3},{label:'Within SLA',data:months.map(m=>byMonth[m].total-byMonth[m].breach),backgroundColor:'rgba(67,122,34,0.6)',borderRadius:3}]},options:{...defaults,scales:{...defaults.scales,x:{...defaults.scales.x,stacked:true},y:{...defaults.scales.y,stacked:true}}}});
-  // Source
-  const v2b=data.filter(r=>r.source==='v2'&&r.breached).length;
+  const v2b=data.filter(r=>r.source==='breaches'&&r.breached).length;
   const slab=data.filter(r=>r.source==='sla'&&r.breached).length;
-  charts.source=new Chart(document.getElementById('chartSource'),{type:'doughnut',data:{labels:['V2 Breaches','3093 Breaches'],datasets:[{data:[v2b,slab],backgroundColor:['rgba(161,44,123,0.8)','rgba(0,100,148,0.8)'],borderWidth:0}]},options:{...defaults,scales:{}}});
-  // Top queues
+  charts.source=new Chart(document.getElementById('chartSource'),{type:'doughnut',data:{labels:['Breaches file','SLA file'],datasets:[{data:[v2b,slab],backgroundColor:['rgba(161,44,123,0.8)','rgba(0,100,148,0.8)'],borderWidth:0}]},options:{...defaults,scales:{}}});
   const qCounts={};
   data.filter(r=>r.breached).forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
   const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
   charts.queue=new Chart(document.getElementById('chartQueue'),{type:'bar',data:{labels:topQ.map(q=>q[0]),datasets:[{label:'Breaches',data:topQ.map(q=>q[1]),backgroundColor:'rgba(218,113,1,0.75)',borderRadius:3}]},options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,legend:{display:false}}}});
-  // Breach rate
   charts.rate=new Chart(document.getElementById('chartRate'),{type:'line',data:{labels:months,datasets:[{label:'Breach %',data:months.map(m=>byMonth[m].total?+(byMonth[m].breach/byMonth[m].total*100).toFixed(1):0),borderColor:'rgba(1,105,111,0.9)',backgroundColor:'rgba(1,105,111,0.12)',fill:true,tension:0.35,pointRadius:3}]},options:defaults});
 }
 
 /* ── Heatmap ──────────────────────────────────────────────────── */
 function renderHeatmap(data){
-  const months=[...new Set(data.map(r=>r.month))].sort();
+  const months=[...new Set(data.map(r=>r.month).filter(Boolean))].sort();
   const queues=[...new Set(data.map(r=>r.queue))].filter(Boolean).sort();
   const grid={};
   data.filter(r=>r.breached).forEach(r=>{
@@ -544,7 +555,7 @@ function renderMissing(data){
     const ageStr=age!=null?`${age}d`:'—';
     return `<tr>
       <td>${r.ticket||'—'}</td>
-      <td><span class="pill pill-${r.source==='v2'?'warn':'blue'}">${r.source}</span></td>
+      <td><span class="pill pill-${r.source==='breaches'?'warn':'blue'}">${r.source}</span></td>
       <td>${r.queue||'—'}</td>
       <td>${r.created?r.created.toLocaleDateString():'—'}</td>
       <td style="font-weight:${age>30?'700':'400'};color:${age>30?'var(--error)':'inherit'}">${ageStr}</td>
@@ -563,7 +574,7 @@ function renderTable(data){
   }
   body.innerHTML=data.slice(0,500).map(r=>`<tr>
     <td>${r.ticket||'—'}</td>
-    <td><span class="pill pill-${r.source==='v2'?'warn':'blue'}">${r.source}</span></td>
+    <td><span class="pill pill-${r.source==='breaches'?'warn':'blue'}">${r.source}</span></td>
     <td>${r.queue||'—'}</td>
     <td>${r.month||'—'}</td>
     <td>${r.created?r.created.toLocaleDateString():'—'}</td>
