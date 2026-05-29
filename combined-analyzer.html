@@ -22,9 +22,19 @@
       <h1>Combined Analyzer</h1>
     </div>
   </div>
-  <button class="btn btn-secondary" data-theme-toggle aria-label="Toggle theme">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-  </button>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button id="exportCsvBtn" class="btn btn-secondary" hidden>
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Export CSV
+    </button>
+    <button id="printBtn" class="btn btn-secondary" hidden>
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print Report
+    </button>
+    <button class="btn btn-secondary" data-theme-toggle aria-label="Toggle theme">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+  </div>
 </header>
 
 <main class="app-shell">
@@ -64,6 +74,8 @@
     <button class="tab-btn" data-tab="language">Language Analysis</button>
     <button class="tab-btn" data-tab="missing">Missing KSLs</button>
     <button class="tab-btn" data-tab="queue">Queue Breakdown</button>
+    <button class="tab-btn" data-tab="alerts">Alerts <span id="alertBadge" class="alert-badge"></span></button>
+    <button class="tab-btn" data-tab="actions">Action Plan</button>
   </nav>
 
   <!-- TAB: OVERVIEW -->
@@ -142,10 +154,42 @@
     </div>
   </section>
 
+  <!-- TAB: ALERTS -->
+  <section class="tab-panel" id="tab-alerts" hidden>
+    <div class="alerts-header">
+      <p class="muted">Automatically flagged conditions based on breach rate thresholds and month-over-month change. Thresholds: 🔴 rate &gt; 15% or MoM &gt; 40% — 🟡 rate 5–15% or MoM 20–40% — 🟢 rate &lt; 5% and stable.</p>
+    </div>
+    <div id="alertsGrid" class="alerts-grid"></div>
+  </section>
+
+  <!-- TAB: ACTION PLAN -->
+  <section class="tab-panel" id="tab-actions" hidden>
+    <div class="panel" id="actionPlanPanel">
+      <div class="panel-header">
+        <div>
+          <h2>Action Plan</h2>
+          <p class="muted">Auto-generated from alerts. Click any recommendation to edit it inline.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="addActionBtn">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add item
+          </button>
+          <button class="btn btn-primary" id="printActionBtn">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print / Save PDF
+          </button>
+        </div>
+      </div>
+      <div id="actionPlanMeta" class="action-meta"></div>
+      <ol id="actionList" class="action-list"></ol>
+    </div>
+  </section>
+
 </main>
 
 <script>
-// ─── UTILS ────────────────────────────────────────────────────────────────────
+// ─── UTILS ───────────────────────────────────────────────────────────────────
 const MONTHS = ['March', 'April', 'May'];
 const MISSING_KSLS = ['KSL-2a', 'KSL-2b', 'KSL-2c', 'KSL-3a', 'KSL-5b', 'KSL-6'];
 
@@ -169,7 +213,6 @@ function monthFromDate(value) {
 }
 
 function normalizeQueue(q = '') { return String(q).replace(/^FT_use-/i, ''); }
-
 function toNum(v) {
   if (v === null || v === undefined || v === '') return NaN;
   return Number(String(v).replace(',', '.'));
@@ -242,31 +285,29 @@ let activeMonth = 'all', activeLangMonth = 'all';
 let trendChartInst, sourceChartInst, langChartInst, missingTrendInst, queueChartInst, topicChartInst;
 
 // ─── UI HELPERS ───────────────────────────────────────────────────────────────
-function setStatus(el, text, type) {
-  el.textContent = text;
-  el.className = `status-tag status-${type}`;
-}
-
+function setStatus(el, text, type) { el.textContent = text; el.className = `status-tag status-${type}`; }
 function checkReady() {
   const btn = document.getElementById('runMerge');
-  if (v2Records.length > 0 || csvRecords.length > 0) {
-    btn.disabled = false;
-    btn.textContent = 'Run analysis';
-  }
+  if (v2Records.length > 0 || csvRecords.length > 0) { btn.disabled = false; btn.textContent = 'Run analysis'; }
 }
-
 function filteredRecords(month = activeMonth) {
-  if (month === 'all') return allRecords;
-  return allRecords.filter(r => r.month === month);
+  return month === 'all' ? allRecords : allRecords.filter(r => r.month === month);
 }
 
-// ─── KPI CARDS ────────────────────────────────────────────────────────────────
+// ─── SLA COLORS ───────────────────────────────────────────────────────────────
 const SLA_COLORS = {
   'KSL-4':'#01696f','KM-1':'#437a22','KSL-5a':'#006494','KM-2':'#7a39bb',
   'KSL-2a':'#da7101','KSL-2b':'#d19900','KSL-2c':'#bb653b',
   'KSL-3a':'#a12c7b','KSL-5b':'#a13544','KSL-6':'#6b675f'
 };
 
+const KSL_DESC = {
+  'KSL-2a':'Handling Time – Low ≤ 180 min', 'KSL-2b':'Handling Time – Low ≤ 300 min',
+  'KSL-2c':'Handling Time – Medium ≤ 150 min', 'KSL-3a':'Reaction Time ≤ 30 min',
+  'KSL-5b':'Resolution Quality', 'KSL-6':'COMPASS Linking'
+};
+
+// ─── KPI CARDS ────────────────────────────────────────────────────────────────
 function buildKpiGrid(records) {
   const grid = document.getElementById('kpiGrid');
   const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
@@ -276,7 +317,6 @@ function buildKpiGrid(records) {
     const total = rows.length;
     const rate = total ? ((breaches / total) * 100).toFixed(1) : '0.0';
     const color = SLA_COLORS[sla] || '#01696f';
-    // MoM arrow for 3093 source
     let arrow = '';
     if (MISSING_KSLS.includes(sla)) {
       const mar = records.filter(r => r.sla_code === sla && r.month === 'March' && r.is_breach).length;
@@ -332,7 +372,7 @@ function buildSourceChart() {
   });
 }
 
-// ─── LANGUAGE HEATMAP ────────────────────────────────────────────────────────
+// ─── HEATMAP ───────────────────────────────────────────────────────────────────
 function buildHeatmap(monthFilter = 'all') {
   const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code) && (monthFilter === 'all' || r.month === monthFilter));
   const langs = [...new Set(src.map(r => r.iso_language))].filter(Boolean).sort();
@@ -354,32 +394,21 @@ function buildHeatmap(monthFilter = 'all') {
   table.innerHTML = header + `<tbody>${rows.join('')}</tbody>`;
 }
 
-// ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
+// ─── LANG CHART ──────────────────────────────────────────────────────────────
 function buildLangChart() {
-  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language);
   const counts = {};
-  breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
+  allRecords.filter(r => r.is_breach && r.iso_language).forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
   if (langChartInst) langChartInst.destroy();
   langChartInst = new Chart(document.getElementById('langChart'), {
     type: 'bar',
     data: { labels: sorted.map(s=>s[0]), datasets: [{ label: 'Breach count',
       data: sorted.map(s=>s[1]), backgroundColor: '#01696f99', borderColor: '#01696f', borderWidth: 1 }] },
-    options: { responsive: true, plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } } }
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
   });
 }
 
-// ─── MISSING KSL CARDS ───────────────────────────────────────────────────────
-const KSL_DESC = {
-  'KSL-2a':'Handling Time – Low ≤ 180 min',
-  'KSL-2b':'Handling Time – Low ≤ 300 min',
-  'KSL-2c':'Handling Time – Medium ≤ 150 min',
-  'KSL-3a':'Reaction Time ≤ 30 min',
-  'KSL-5b':'Resolution Quality',
-  'KSL-6':'COMPASS Linking'
-};
-
+// ─── MISSING KSL CARDS ────────────────────────────────────────────────────────
 function buildMissingKslCards() {
   const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
   const container = document.getElementById('missingKslCards');
@@ -414,8 +443,7 @@ function buildMissingTrendChart() {
   const datasets = MISSING_KSLS.map(sla => ({
     label: sla,
     data: MONTHS.map(m => src.filter(r=>r.sla_code===sla&&r.month===m&&r.is_breach).length),
-    borderColor: SLA_COLORS[sla]||'#999',
-    backgroundColor: (SLA_COLORS[sla]||'#999')+'22',
+    borderColor: SLA_COLORS[sla]||'#999', backgroundColor: (SLA_COLORS[sla]||'#999')+'22',
     tension: 0.35, pointRadius: 5, fill: false, borderWidth: 2
   }));
   if (missingTrendInst) missingTrendInst.destroy();
@@ -431,35 +459,217 @@ function buildMissingTrendChart() {
 // ─── QUEUE & TOPIC CHARTS ────────────────────────────────────────────────────
 function buildQueueChart() {
   const counts = {};
-  allRecords.filter(r=>r.is_breach&&r.queue_normalized).forEach(r=>{
-    counts[r.queue_normalized]=(counts[r.queue_normalized]||0)+1;
-  });
+  allRecords.filter(r=>r.is_breach&&r.queue_normalized).forEach(r=>{ counts[r.queue_normalized]=(counts[r.queue_normalized]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
   if (queueChartInst) queueChartInst.destroy();
   queueChartInst = new Chart(document.getElementById('queueChart'), {
-    type:'bar',
-    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+    type:'bar', data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
       data:sorted.map(s=>s[1]), backgroundColor:'#006494aa', borderColor:'#006494', borderWidth:1}] },
-    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
-      scales:{x:{beginAtZero:true}} }
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}} }
   });
 }
 
 function buildTopicChart() {
   const counts = {};
-  allRecords.filter(r=>r.is_breach&&r.topic).forEach(r=>{
-    counts[r.topic]=(counts[r.topic]||0)+1;
-  });
+  allRecords.filter(r=>r.is_breach&&r.topic).forEach(r=>{ counts[r.topic]=(counts[r.topic]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
   if (topicChartInst) topicChartInst.destroy();
   topicChartInst = new Chart(document.getElementById('topicChart'), {
-    type:'bar',
-    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+    type:'bar', data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
       data:sorted.map(s=>s[1]), backgroundColor:'#a12c7baa', borderColor:'#a12c7b', borderWidth:1}] },
-    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
-      scales:{x:{beginAtZero:true}} }
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}} }
   });
 }
+
+// ─── ALERTS ENGINE ─────────────────────────────────────────────────────────────
+function runAlertEngine() {
+  const alerts = [];
+  const allSlas = [...new Set(allRecords.map(r => r.sla_code))];
+
+  // 1. Per-SLA breach rate alert
+  allSlas.forEach(sla => {
+    const rows = allRecords.filter(r => r.sla_code === sla);
+    const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
+    if (total < 5) return;
+    const rate = (breaches / total) * 100;
+    const mar = rows.filter(r=>r.month==='March'&&r.is_breach).length;
+    const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
+    const mom = mar > 0 ? ((may - mar) / mar * 100) : null;
+    let severity = 'stable';
+    if (rate > 15 || (mom !== null && mom > 40)) severity = 'critical';
+    else if (rate > 5 || (mom !== null && mom > 20)) severity = 'watch';
+    if (severity !== 'stable') {
+      alerts.push({ severity, sla, scope: 'All languages', rate: rate.toFixed(1),
+        mom: mom !== null ? mom.toFixed(0) : null,
+        detail: `${breaches} breaches out of ${total} records (${rate.toFixed(1)}%)${mom !== null ? ` — MoM change Mar→May: ${mom > 0 ? '+' : ''}${mom.toFixed(0)}%` : ''}`,
+        recommendation: severity === 'critical'
+          ? `Immediate review required for ${sla}. Escalate to team leads, audit top queues and applications driving breaches.`
+          : `Monitor ${sla} closely. Investigate top queues and assign process improvement actions for next sprint.`
+      });
+    }
+  });
+
+  // 2. Per-language per-SLA alerts (3093 only)
+  const csv3093 = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
+  const langs = [...new Set(csv3093.map(r => r.iso_language))].filter(Boolean);
+  langs.forEach(lang => {
+    MISSING_KSLS.forEach(sla => {
+      const rows = csv3093.filter(r => r.iso_language === lang && r.sla_code === sla);
+      if (rows.length < 3) return;
+      const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
+      const rate = (breaches / total) * 100;
+      const mar = rows.filter(r=>r.month==='March'&&r.is_breach).length;
+      const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
+      const mom = mar > 0 ? ((may - mar) / mar * 100) : null;
+      let severity = 'stable';
+      if (rate > 15 || (mom !== null && mom > 40)) severity = 'critical';
+      else if (rate > 5 || (mom !== null && mom > 20)) severity = 'watch';
+      if (severity !== 'stable') {
+        alerts.push({ severity, sla, scope: lang, rate: rate.toFixed(1),
+          mom: mom !== null ? mom.toFixed(0) : null,
+          detail: `${lang} | ${sla}: ${breaches}/${total} breaches (${rate.toFixed(1)}%)${mom !== null ? ` — MoM: ${mom > 0 ? '+' : ''}${mom.toFixed(0)}%` : ''}`,
+          recommendation: `Review ${lang}-language tickets for ${sla}. Check if specific queues or agents are driving this pattern.`
+        });
+      }
+    });
+  });
+
+  // 3. New language in May with >5 breaches
+  const mayLangs = new Set(csv3093.filter(r=>r.month==='May').map(r=>r.iso_language));
+  const marLangs = new Set(csv3093.filter(r=>r.month==='March').map(r=>r.iso_language));
+  mayLangs.forEach(lang => {
+    if (!lang || marLangs.has(lang)) return;
+    const mayBreaches = csv3093.filter(r=>r.month==='May'&&r.iso_language===lang&&r.is_breach).length;
+    if (mayBreaches > 5) {
+      alerts.push({ severity: 'watch', sla: 'Multiple', scope: lang,
+        rate: '?', mom: null,
+        detail: `New language '${lang}' appeared in May with ${mayBreaches} breaches — not present in March data.`,
+        recommendation: `Investigate newly appearing language '${lang}' in May. Confirm it is a genuine new scope and not a data labelling issue.`
+      });
+    }
+  });
+
+  // Sort: critical first, then watch
+  alerts.sort((a,b) => { const o = {critical:0,watch:1,stable:2}; return o[a.severity]-o[b.severity]; });
+  return alerts;
+}
+
+function buildAlertsTab(alerts) {
+  const grid = document.getElementById('alertsGrid');
+  const badge = document.getElementById('alertBadge');
+  const critCount = alerts.filter(a=>a.severity==='critical').length;
+  const watchCount = alerts.filter(a=>a.severity==='watch').length;
+  badge.textContent = alerts.length;
+  badge.className = 'alert-badge' + (critCount > 0 ? ' badge-critical' : watchCount > 0 ? ' badge-watch' : '');
+
+  if (alerts.length === 0) {
+    grid.innerHTML = `<div class="panel alert-empty">
+      <span style="font-size:32px">\u2705</span>
+      <h3>No alerts</h3>
+      <p class="muted">All SLA codes are within acceptable thresholds.</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = alerts.map((a, i) => {
+    const icon = a.severity === 'critical' ? '\uD83D\uDD34' : a.severity === 'watch' ? '\uD83D\uDFE1' : '\uD83D\uDFE2';
+    const momStr = a.mom !== null ? `<span class="alert-meta-chip">${a.mom > 0 ? '+' : ''}${a.mom}% MoM</span>` : '';
+    return `<article class="alert-card alert-${a.severity}">
+      <div class="alert-header">
+        <span class="alert-icon">${icon}</span>
+        <div>
+          <span class="alert-sla">${a.sla}</span>
+          <span class="alert-scope">${a.scope}</span>
+        </div>
+        <span class="alert-rate">${a.rate}% breach rate ${momStr}</span>
+      </div>
+      <p class="alert-detail">${a.detail}</p>
+      <p class="alert-rec">💡 ${a.recommendation}</p>
+    </article>`;
+  }).join('');
+}
+
+// ─── ACTION PLAN ──────────────────────────────────────────────────────────────
+let actionItems = [];
+
+function buildActionPlan(alerts) {
+  const totalBreaches = allRecords.filter(r=>r.is_breach).length;
+  const criticals = alerts.filter(a=>a.severity==='critical');
+  const watches = alerts.filter(a=>a.severity==='watch');
+  const generatedOn = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
+
+  document.getElementById('actionPlanMeta').innerHTML =
+    `<div class="meta-row">
+      <span>📅 Generated: <strong>${generatedOn}</strong></span>
+      <span>🚨 Critical alerts: <strong>${criticals.length}</strong></span>
+      <span>🟡 Watch alerts: <strong>${watches.length}</strong></span>
+      <span>📄 Total breaches analysed: <strong>${totalBreaches.toLocaleString()}</strong></span>
+    </div>`;
+
+  // Seed from critical alerts first, then watches
+  actionItems = [];
+  criticals.forEach(a => {
+    actionItems.push({ priority: 'High', sla: a.sla, scope: a.scope, text: a.recommendation, done: false });
+  });
+  watches.forEach(a => {
+    actionItems.push({ priority: 'Medium', sla: a.sla, scope: a.scope, text: a.recommendation, done: false });
+  });
+  // Add a generic process review item
+  actionItems.push({ priority: 'Low', sla: 'All', scope: 'Process', text: 'Schedule monthly SLA review meeting with team leads to track progress on all flagged items.', done: false });
+  renderActionList();
+}
+
+function renderActionList() {
+  const list = document.getElementById('actionList');
+  list.innerHTML = actionItems.map((item, i) => {
+    const pColor = item.priority === 'High' ? '#a13544' : item.priority === 'Medium' ? '#d19900' : '#437a22';
+    return `<li class="action-item ${item.done ? 'action-done' : ''}" data-idx="${i}">
+      <label class="action-check">
+        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleAction(${i})">
+      </label>
+      <div class="action-body">
+        <div class="action-meta">
+          <span class="action-priority" style="background:${pColor}22;color:${pColor}">${item.priority}</span>
+          <span class="action-sla-tag">${item.sla} — ${item.scope}</span>
+        </div>
+        <p class="action-text" contenteditable="true" onblur="updateAction(${i}, this.innerText)">${item.text}</p>
+      </div>
+      <button class="action-del" onclick="deleteAction(${i})" title="Remove item">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </li>`;
+  }).join('');
+}
+
+function toggleAction(i) { actionItems[i].done = !actionItems[i].done; renderActionList(); }
+function updateAction(i, text) { actionItems[i].text = text; }
+function deleteAction(i) { actionItems.splice(i, 1); renderActionList(); }
+
+document.getElementById('addActionBtn').addEventListener('click', () => {
+  actionItems.push({ priority: 'Low', sla: 'All', scope: 'Custom', text: 'New action item — click to edit.', done: false });
+  renderActionList();
+  showTab('actions');
+});
+
+// ─── EXPORT CSV ───────────────────────────────────────────────────────────────
+function exportCsv() {
+  const fields = ['source','month','sla_code','incident_ticket','iso_language','language_name','queue_normalized','topic','is_breach','excluded'];
+  const header = fields.join(',');
+  const rows = allRecords.map(r => fields.map(f => {
+    const v = r[f] !== undefined ? String(r[f]) : '';
+    return v.includes(',') || v.includes('"') ? `"${v.replace(/"/g,'""')}"` : v;
+  }).join(','));
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `breach-analysis-export-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+document.getElementById('printBtn').addEventListener('click', () => { showTab('actions'); setTimeout(() => window.print(), 300); });
+document.getElementById('printActionBtn').addEventListener('click', () => window.print());
 
 // ─── TAB LOGIC ────────────────────────────────────────────────────────────────
 function showTab(name) {
@@ -468,9 +678,9 @@ function showTab(name) {
   document.getElementById(`tab-${name}`).hidden = false;
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
 }
-
 document.getElementById('tabBar').addEventListener('click', e => {
-  if (e.target.dataset.tab) showTab(e.target.dataset.tab);
+  if (e.target.closest('.tab-btn') && e.target.closest('.tab-btn').dataset.tab)
+    showTab(e.target.closest('.tab-btn').dataset.tab);
 });
 
 // ─── MONTH FILTER ─────────────────────────────────────────────────────────────
@@ -481,7 +691,6 @@ document.getElementById('monthFilter').addEventListener('click', e => {
   e.target.classList.add('active');
   buildKpiGrid(filteredRecords());
 });
-
 document.getElementById('langMonthFilter').addEventListener('click', e => {
   if (!e.target.dataset.lmonth) return;
   activeLangMonth = e.target.dataset.lmonth;
@@ -502,7 +711,6 @@ document.getElementById('v2Files').addEventListener('change', async e => {
   setStatus(document.getElementById('v2Status'), `${files.length} file(s) — ${v2Records.length} rows parsed`, 'ok');
   checkReady();
 });
-
 document.getElementById('csvFiles').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []);
   csvRecords = [];
@@ -530,7 +738,13 @@ document.getElementById('runMerge').addEventListener('click', () => {
   buildQueueChart();
   buildTopicChart();
 
+  const alerts = runAlertEngine();
+  buildAlertsTab(alerts);
+  buildActionPlan(alerts);
+
   document.getElementById('tabBar').hidden = false;
+  document.getElementById('exportCsvBtn').hidden = false;
+  document.getElementById('printBtn').hidden = false;
   showTab('overview');
 });
 
@@ -546,5 +760,73 @@ document.getElementById('runMerge').addEventListener('click', () => {
   });
 })();
 </script>
+
+<style>
+/* ─── PHASE 3 ADDITIONS ──────────────────────────────────────────────────────── */
+.alert-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; border-radius: 999px; font-size: 11px;
+  font-weight: 700; padding: 0 5px; margin-left: 6px;
+  background: var(--border); color: var(--muted);
+}
+.badge-critical { background: #a13544; color: #fff; }
+.badge-watch { background: #d19900; color: #fff; }
+
+.alerts-header { padding: 4px 0 12px; }
+.alerts-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.alert-card {
+  border-radius: 12px; padding: 16px 20px;
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.alert-critical { background: #fdf0f1; border-left: 4px solid #a13544; }
+.alert-watch { background: #fdf8e8; border-left: 4px solid #d19900; }
+[data-theme="dark"] .alert-critical { background: #2d1f22; border-left-color: #dd6974; }
+[data-theme="dark"] .alert-watch { background: #2d2818; border-left-color: #e8af34; }
+
+.alert-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.alert-icon { font-size: 20px; flex-shrink: 0; }
+.alert-sla { font-weight: 700; font-size: 15px; }
+.alert-scope { font-size: 13px; color: var(--muted); margin-left: 6px; }
+.alert-rate { margin-left: auto; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.alert-meta-chip { background: var(--border); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.alert-detail { font-size: 13px; color: var(--muted); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.alert-rec { font-size: 13px; color: var(--text); line-height: 1.55; }
+.alert-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 48px; }
+
+/* ACTION PLAN */
+.action-meta { margin-bottom: 20px; }
+.meta-row { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.meta-row strong { color: var(--text); }
+.action-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.action-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--surface-alt, var(--bg)); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; transition: opacity .2s;
+}
+.action-done { opacity: 0.45; }
+.action-check { flex-shrink: 0; padding-top: 2px; }
+.action-check input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+.action-body { flex: 1; min-width: 0; }
+.action-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.action-priority { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.action-sla-tag { font-size: 12px; color: var(--muted); }
+.action-text { font-size: 14px; line-height: 1.55; outline: none; border-radius: 4px; padding: 2px 4px; margin: 0 -4px; }
+.action-text:focus { background: color-mix(in oklab, var(--primary) 8%, transparent); }
+.action-done .action-text { text-decoration: line-through; }
+.action-del { flex-shrink: 0; color: var(--muted); padding: 4px; border-radius: 6px; transition: color .15s; }
+.action-del:hover { color: #a13544; background: #fdf0f1; }
+
+/* PRINT */
+@media print {
+  .app-header button, .tab-bar, .upload-grid, .run-row, #exportCsvBtn, #printBtn,
+  #tab-overview, #tab-language, #tab-missing, #tab-queue, #tab-alerts,
+  .action-del, .action-check { display: none !important; }
+  #tab-actions { display: block !important; }
+  body { background: white; color: black; }
+  .action-item { border: 1px solid #ccc; break-inside: avoid; }
+  .alert-card { break-inside: avoid; }
+}
+</style>
 </body>
 </html>
