@@ -14,6 +14,12 @@
 </head>
 <body>
 
+<!-- PRINT-ONLY HEADER (hidden on screen, visible when printing) -->
+<div id="printHeader" class="print-only">
+  <h1 style="margin:0 0 4px;font-size:20px">SLA Breach Analysis — Action Plan</h1>
+  <p id="printMeta" style="margin:0;font-size:12px;color:#555"></p>
+</div>
+
 <header class="app-header">
   <div class="header-left">
     <a href="./index.html" class="back-link">← Overview</a>
@@ -486,7 +492,6 @@ function runAlertEngine() {
   const alerts = [];
   const allSlas = [...new Set(allRecords.map(r => r.sla_code))];
 
-  // 1. Per-SLA breach rate alert
   allSlas.forEach(sla => {
     const rows = allRecords.filter(r => r.sla_code === sla);
     const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
@@ -509,7 +514,6 @@ function runAlertEngine() {
     }
   });
 
-  // 2. Per-language per-SLA alerts (3093 only)
   const csv3093 = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
   const langs = [...new Set(csv3093.map(r => r.iso_language))].filter(Boolean);
   langs.forEach(lang => {
@@ -534,7 +538,6 @@ function runAlertEngine() {
     });
   });
 
-  // 3. New language in May with >5 breaches
   const mayLangs = new Set(csv3093.filter(r=>r.month==='May').map(r=>r.iso_language));
   const marLangs = new Set(csv3093.filter(r=>r.month==='March').map(r=>r.iso_language));
   mayLangs.forEach(lang => {
@@ -549,7 +552,6 @@ function runAlertEngine() {
     }
   });
 
-  // Sort: critical first, then watch
   alerts.sort((a,b) => { const o = {critical:0,watch:1,stable:2}; return o[a.severity]-o[b.severity]; });
   return alerts;
 }
@@ -598,6 +600,10 @@ function buildActionPlan(alerts) {
   const watches = alerts.filter(a=>a.severity==='watch');
   const generatedOn = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
 
+  // Update the print-only header meta line
+  document.getElementById('printMeta').textContent =
+    `Generated: ${generatedOn} — Critical alerts: ${criticals.length} — Watch alerts: ${watches.length} — Total breaches: ${totalBreaches.toLocaleString()}`;
+
   document.getElementById('actionPlanMeta').innerHTML =
     `<div class="meta-row">
       <span>📅 Generated: <strong>${generatedOn}</strong></span>
@@ -606,7 +612,6 @@ function buildActionPlan(alerts) {
       <span>📄 Total breaches analysed: <strong>${totalBreaches.toLocaleString()}</strong></span>
     </div>`;
 
-  // Seed from critical alerts first, then watches
   actionItems = [];
   criticals.forEach(a => {
     actionItems.push({ priority: 'High', sla: a.sla, scope: a.scope, text: a.recommendation, done: false });
@@ -614,7 +619,6 @@ function buildActionPlan(alerts) {
   watches.forEach(a => {
     actionItems.push({ priority: 'Medium', sla: a.sla, scope: a.scope, text: a.recommendation, done: false });
   });
-  // Add a generic process review item
   actionItems.push({ priority: 'Low', sla: 'All', scope: 'Process', text: 'Schedule monthly SLA review meeting with team leads to track progress on all flagged items.', done: false });
   renderActionList();
 }
@@ -634,7 +638,7 @@ function renderActionList() {
         </div>
         <p class="action-text" contenteditable="true" onblur="updateAction(${i}, this.innerText)">${item.text}</p>
       </div>
-      <button class="action-del" onclick="deleteAction(${i})" title="Remove item">
+      <button class="action-del no-print" onclick="deleteAction(${i})" title="Remove item">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
     </li>`;
@@ -668,8 +672,25 @@ function exportCsv() {
 }
 
 document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-document.getElementById('printBtn').addEventListener('click', () => { showTab('actions'); setTimeout(() => window.print(), 300); });
-document.getElementById('printActionBtn').addEventListener('click', () => window.print());
+
+// Print buttons: switch to Action Plan tab, then print
+function triggerPrint() {
+  showTab('actions');
+  // Remove hidden attribute from #tab-actions before printing, restore after
+  const panel = document.getElementById('tab-actions');
+  panel.removeAttribute('hidden');
+  setTimeout(() => {
+    window.print();
+    // After print dialog closes, restore normal tab state
+    setTimeout(() => {
+      document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
+      panel.hidden = false; // keep action plan shown since we just navigated here
+    }, 500);
+  }, 300);
+}
+
+document.getElementById('printBtn').addEventListener('click', triggerPrint);
+document.getElementById('printActionBtn').addEventListener('click', triggerPrint);
 
 // ─── TAB LOGIC ────────────────────────────────────────────────────────────────
 function showTab(name) {
@@ -817,15 +838,39 @@ document.getElementById('runMerge').addEventListener('click', () => {
 .action-del { flex-shrink: 0; color: var(--muted); padding: 4px; border-radius: 6px; transition: color .15s; }
 .action-del:hover { color: #a13544; background: #fdf0f1; }
 
-/* PRINT */
+/* ─── PRINT ──────────────────────────────────────────────────────────────────── */
+.print-only { display: none; }
+
 @media print {
-  .app-header button, .tab-bar, .upload-grid, .run-row, #exportCsvBtn, #printBtn,
+  /* Hide all chrome */
+  .app-header, .tab-bar, .upload-grid, .run-row,
   #tab-overview, #tab-language, #tab-missing, #tab-queue, #tab-alerts,
-  .action-del, .action-check { display: none !important; }
-  #tab-actions { display: block !important; }
-  body { background: white; color: black; }
-  .action-item { border: 1px solid #ccc; break-inside: avoid; }
+  .no-print { display: none !important; }
+
+  /* Show print header */
+  .print-only { display: block !important; margin-bottom: 16px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+
+  /* Force action plan panel visible regardless of hidden attribute */
+  #tab-actions {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    clip: auto !important;
+  }
+
+  body { background: white !important; color: black !important; font-family: Inter, sans-serif; }
+  .panel { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .action-item { border: 1px solid #ccc !important; break-inside: avoid; background: white !important; }
+  .action-done { opacity: 0.5; }
+  .action-text { color: black !important; }
   .alert-card { break-inside: avoid; }
+  .meta-row { color: #444 !important; }
+  .meta-row strong { color: black !important; }
+  .action-priority { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .action-check input { display: inline-block !important; }
 }
 </style>
 </body>
