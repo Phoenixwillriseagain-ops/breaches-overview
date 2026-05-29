@@ -95,6 +95,10 @@
         <button class="pill" data-month="May">May</button>
       </div>
     </div>
+
+    <!-- GRAND TOTAL SUMMARY BANNER -->
+    <div id="grandTotalBanner" class="grand-total-banner"></div>
+
     <div id="kpiGrid" class="kpi-grid"></div>
     <div class="chart-grid">
       <div class="panel chart-panel">
@@ -313,8 +317,61 @@ const KSL_DESC = {
   'KSL-5b':'Resolution Quality', 'KSL-6':'COMPASS Linking'
 };
 
+// ─── GRAND TOTAL BANNER ──────────────────────────────────────────────────────
+function buildGrandTotal(records) {
+  const banner = document.getElementById('grandTotalBanner');
+  const total    = records.length;
+  const breaches = records.filter(r => r.is_breach).length;
+  const ok       = total - breaches;
+  const rate     = total ? (breaches / total * 100) : 0;
+  const rateStr  = rate.toFixed(1);
+
+  // V2 vs 3093 split (breaches only)
+  const v2B  = records.filter(r => r.is_breach && r.source === 'V2').length;
+  const csvB = records.filter(r => r.is_breach && r.source === '3093').length;
+
+  // Colour the rate chip based on severity
+  const rateColor = rate >= 15 ? '#a13544' : rate >= 5 ? '#d19900' : '#437a22';
+  const rateBg    = rate >= 15 ? '#fdf0f1' : rate >= 5 ? '#fdf8e8' : '#edf7e8';
+  const rateBgDark= rate >= 15 ? '#2d1f22' : rate >= 5 ? '#2d2818' : '#1e2a1e';
+
+  banner.innerHTML = `
+    <div class="gts-main">
+      <div class="gts-stat">
+        <span class="gts-num">${total.toLocaleString()}</span>
+        <span class="gts-label">Total tickets</span>
+      </div>
+      <div class="gts-divider"></div>
+      <div class="gts-stat gts-breach">
+        <span class="gts-num">${breaches.toLocaleString()}</span>
+        <span class="gts-label">Breached</span>
+      </div>
+      <div class="gts-divider"></div>
+      <div class="gts-stat gts-ok">
+        <span class="gts-num">${ok.toLocaleString()}</span>
+        <span class="gts-label">Within SLA</span>
+      </div>
+      <div class="gts-divider"></div>
+      <div class="gts-stat">
+        <span class="gts-rate-chip" style="background:${rateBg};color:${rateColor}" data-dark-bg="${rateBgDark}">${rateStr}%</span>
+        <span class="gts-label">Overall breach rate</span>
+      </div>
+    </div>
+    <div class="gts-split">
+      <span class="gts-split-item">
+        <span class="gts-split-dot" style="background:#01696f"></span>
+        V2 breaches: <strong>${v2B.toLocaleString()}</strong>
+      </span>
+      <span class="gts-split-item">
+        <span class="gts-split-dot" style="background:#a12c7b"></span>
+        3093 breaches: <strong>${csvB.toLocaleString()}</strong>
+      </span>
+    </div>`;
+}
+
 // ─── KPI CARDS ────────────────────────────────────────────────────────────────
 function buildKpiGrid(records) {
+  buildGrandTotal(records);
   const grid = document.getElementById('kpiGrid');
   const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
   grid.innerHTML = slaCodes.map(sla => {
@@ -600,7 +657,6 @@ function buildActionPlan(alerts) {
   const watches = alerts.filter(a=>a.severity==='watch');
   const generatedOn = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
 
-  // Update the print-only header meta line
   document.getElementById('printMeta').textContent =
     `Generated: ${generatedOn} — Critical alerts: ${criticals.length} — Watch alerts: ${watches.length} — Total breaches: ${totalBreaches.toLocaleString()}`;
 
@@ -673,18 +729,15 @@ function exportCsv() {
 
 document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
 
-// Print buttons: switch to Action Plan tab, then print
 function triggerPrint() {
   showTab('actions');
-  // Remove hidden attribute from #tab-actions before printing, restore after
   const panel = document.getElementById('tab-actions');
   panel.removeAttribute('hidden');
   setTimeout(() => {
     window.print();
-    // After print dialog closes, restore normal tab state
     setTimeout(() => {
       document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
-      panel.hidden = false; // keep action plan shown since we just navigated here
+      panel.hidden = false;
     }, 500);
   }, 300);
 }
@@ -783,6 +836,100 @@ document.getElementById('runMerge').addEventListener('click', () => {
 </script>
 
 <style>
+/* ─── GRAND TOTAL BANNER ──────────────────────────────────────────────────── */
+.grand-total-banner {
+  background: var(--surface, #f9f8f5);
+  border: 1px solid var(--border, #d4d1ca);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px oklch(0.2 0.01 80 / 0.06);
+}
+.gts-main {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.gts-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 28px;
+  flex: 1;
+  min-width: 100px;
+}
+.gts-stat:first-child { padding-left: 0; }
+.gts-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border, #d4d1ca);
+  flex-shrink: 0;
+}
+.gts-num {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #28251d);
+  line-height: 1.1;
+}
+.gts-breach .gts-num { color: #a13544; }
+.gts-ok    .gts-num  { color: #437a22; }
+.gts-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #7a7974);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.gts-rate-chip {
+  display: inline-block;
+  font-size: clamp(1.1rem, 1.6vw, 1.5rem);
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.gts-split {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #d4d1ca);
+}
+.gts-split-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted, #7a7974);
+}
+.gts-split-item strong { color: var(--text, #28251d); }
+.gts-split-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .grand-total-banner {
+  background: var(--surface, #1c1b19);
+  border-color: var(--border, #393836);
+}
+[data-theme="dark"] .gts-num   { color: #cdccca; }
+[data-theme="dark"] .gts-breach .gts-num { color: #dd6974; }
+[data-theme="dark"] .gts-ok    .gts-num  { color: #6daa45; }
+
+/* Mobile: stack stats vertically */
+@media (max-width: 600px) {
+  .gts-main   { flex-direction: column; align-items: stretch; gap: 12px; }
+  .gts-divider { display: none; }
+  .gts-stat   { flex-direction: row; justify-content: space-between; padding: 0; }
+  .gts-num    { font-size: 1.3rem; }
+}
+
 /* ─── PHASE 3 ADDITIONS ──────────────────────────────────────────────────────── */
 .alert-badge {
   display: inline-flex; align-items: center; justify-content: center;
@@ -842,15 +989,12 @@ document.getElementById('runMerge').addEventListener('click', () => {
 .print-only { display: none; }
 
 @media print {
-  /* Hide all chrome */
   .app-header, .tab-bar, .upload-grid, .run-row,
   #tab-overview, #tab-language, #tab-missing, #tab-queue, #tab-alerts,
   .no-print { display: none !important; }
 
-  /* Show print header */
   .print-only { display: block !important; margin-bottom: 16px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
 
-  /* Force action plan panel visible regardless of hidden attribute */
   #tab-actions {
     display: block !important;
     visibility: visible !important;
