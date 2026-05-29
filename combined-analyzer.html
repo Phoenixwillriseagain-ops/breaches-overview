@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Combined Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script type="module" src="./js/app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Phase 1</p>
+      <h1>Combined Analyzer</h1>
+    </div>
+    <a class="btn btn-secondary" href="./index.html">Back</a>
+  </header>
+
+  <main class="app-shell">
+    <section class="upload-grid">
+      <article class="panel">
+        <h2>V2 Excel files</h2>
+        <p class="muted">Drop March, April, and May V2 files here.</p>
+        <input id="v2Files" type="file" accept=".xlsx,.xls" multiple />
+        <div id="v2Status" class="status-box">No V2 files loaded.</div>
+      </article>
+
+      <article class="panel">
+        <h2>3093 CSV files</h2>
+        <p class="muted">Drop 3093 monthly CSV exports here.</p>
+        <input id="csvFiles" type="file" accept=".csv" multiple />
+        <div id="csvStatus" class="status-box">No 3093 files loaded.</div>
+      </article>
+    </section>
+
+    <section class="panel action-panel">
+      <div>
+        <h2>Build unified dataset</h2>
+        <p class="muted">This first version validates parsing, month assignment, and breach classification before the dashboard visuals are added.</p>
+      </div>
+      <button id="runMerge" class="btn btn-primary">Run parser</button>
+    </section>
+
+    <section class="results-grid">
+      <article class="panel">
+        <h2>Unified record summary</h2>
+        <pre id="summaryOutput" class="code-box">Waiting for input...</pre>
+      </article>
+      <article class="panel">
+        <h2>Preview rows</h2>
+        <pre id="previewOutput" class="code-box">No preview yet.</pre>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
