@@ -48,10 +48,10 @@
 
       <!-- SLA drop zone -->
       <div class="upload-card">
-        <h3>SLA Files <span class="badge badge-green">CSV</span></h3>
+        <h3>SLA Files <span class="badge badge-green">CSV / XLSX</span></h3>
         <label class="drop-zone" id="slaDropZone">
-          <span>Drop SLA CSV files here or click to browse</span>
-          <input id="slaFiles" type="file" accept=".csv" multiple />
+          <span>Drop SLA files here or click to browse (.csv or .xlsx)</span>
+          <input id="slaFiles" type="file" accept=".csv,.xlsx,.xls" multiple />
         </label>
         <div id="slaStatus" class="status-tag status-idle">No files loaded</div>
       </div>
@@ -286,7 +286,13 @@ const COLUMN_MAP = {
 
 function monthFromDate(str) {
   if (!str) return 'Unknown';
-  const d = new Date(str.includes('.') ? str.split('.').reverse().join('-') : str);
+  // Handle Excel serial date numbers
+  if (typeof str === 'number') {
+    const d = new Date(Math.round((str - 25569) * 86400 * 1000));
+    if (!isNaN(d)) { const m = d.getUTCMonth(); return m===2?'March':m===3?'April':m===4?'May':'Unknown'; }
+  }
+  const s = String(str);
+  const d = new Date(s.includes('.') ? s.split('.').reverse().join('-') : s);
   if (isNaN(d)) return 'Unknown';
   const m = d.getMonth();
   return m === 2 ? 'March' : m === 3 ? 'April' : m === 4 ? 'May' : 'Unknown';
@@ -295,28 +301,61 @@ function monthFromDate(str) {
 function toNumber(v) { const n = parseFloat(String(v).replace(',','.')); return isNaN(n) ? 0 : n; }
 function normalizeQueue(q) { const s = String(q||'').toLowerCase(); if(s.startsWith('aos')) return 'aos'; if(s.startsWith('ilz')) return 'ilz'; return s; }
 
+function buildSLARecord(fileName, mapped) {
+  const numerator = toNumber(mapped.numerator);
+  const denominator = toNumber(mapped.denominator);
+  const compareDir = toNumber(mapped.compare_dir);
+  const month = monthFromDate(mapped.date_closed);
+  let isBreach = false;
+  if (compareDir === 1) isBreach = numerator < denominator;
+  if (compareDir === -1) isBreach = numerator > 0;
+  return {
+    source: 'sla', file_name: fileName, month,
+    sla_code: mapped.sla_code, sla_name: mapped.sla_name,
+    compare_dir: compareDir, numerator, denominator,
+    incident_ticket: mapped.incident_ticket, status: mapped.status,
+    queue: mapped.queue, queue_normalized: normalizeQueue(mapped.queue),
+    iso_language: mapped.iso_language, language_name: mapped.language_name,
+    topic: mapped.topic, excluded: false, is_breach: Boolean(isBreach), raw: mapped
+  };
+}
+
 function parseSLACsv(fileName, csvText) {
   const result = Papa.parse(csvText, { header:true, skipEmptyLines:true, dynamicTyping:false });
   return result.data.map(row => {
     const mapped = {};
     Object.entries(COLUMN_MAP).forEach(([src,tgt]) => { mapped[tgt] = row[src] ?? ''; });
-    const numerator = toNumber(mapped.numerator);
-    const denominator = toNumber(mapped.denominator);
-    const compareDir = toNumber(mapped.compare_dir);
-    const month = monthFromDate(mapped.date_closed);
-    let isBreach = false;
-    if (compareDir === 1) isBreach = numerator < denominator;
-    if (compareDir === -1) isBreach = numerator > 0;
-    return {
-      source: 'sla', file_name: fileName, month,
-      sla_code: mapped.sla_code, sla_name: mapped.sla_name,
-      compare_dir: compareDir, numerator, denominator,
-      incident_ticket: mapped.incident_ticket, status: mapped.status,
-      queue: mapped.queue, queue_normalized: normalizeQueue(mapped.queue),
-      iso_language: mapped.iso_language, language_name: mapped.language_name,
-      topic: mapped.topic, excluded: false, is_breach: Boolean(isBreach), raw: mapped
-    };
+    return buildSLARecord(fileName, mapped);
   }).filter(r => MONTHS.includes(r.month));
+}
+
+function parseSLAWorkbook(fileName, workbook) {
+  // Use the first sheet that contains known SLA columns
+  const records = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'', raw:true });
+    if (rows.length < 2) continue;
+    // Find header row: scan first 5 rows for a known column
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      if (rows[i].some(cell => Object.keys(COLUMN_MAP).includes(String(cell).trim()))) {
+        headerIdx = i; break;
+      }
+    }
+    if (headerIdx === -1) continue;
+    const headers = rows[headerIdx].map(v => String(v).trim());
+    const dataRows = rows.slice(headerIdx + 1).filter(r => r.some(Boolean));
+    dataRows.forEach(row => {
+      const rawRow = Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']));
+      const mapped = {};
+      Object.entries(COLUMN_MAP).forEach(([src, tgt]) => { mapped[tgt] = rawRow[src] ?? ''; });
+      const rec = buildSLARecord(fileName, mapped);
+      if (MONTHS.includes(rec.month)) records.push(rec);
+    });
+    if (records.length > 0) break; // stop after first sheet with valid data
+  }
+  return records;
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -357,8 +396,17 @@ document.getElementById('slaFiles').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []);
   slaRecords = [];
   for (const file of files) {
-    const text = await file.text();
-    slaRecords.push(...parseSLACsv(file.name, text));
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      // XLSX path: read via SheetJS, apply COLUMN_MAP
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:'array', cellDates:false });
+      slaRecords.push(...parseSLAWorkbook(file.name, wb));
+    } else {
+      // CSV path: read as text, parse via PapaParse
+      const text = await file.text();
+      slaRecords.push(...parseSLACsv(file.name, text));
+    }
   }
   setStatus(document.getElementById('slaStatus'), `${files.length} file(s) — ${slaRecords.length} rows parsed`, 'ok');
   updateRunBtn();
