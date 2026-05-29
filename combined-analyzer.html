@@ -9,6 +9,100 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── Upload zone fix ── */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6, 1.5rem);
+    }
+    @media (max-width: 680px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .upload-card {
+      background: var(--surface, #1c1b19);
+      border: 1px solid var(--border, #393836);
+      border-radius: var(--radius-lg, 0.75rem);
+      padding: var(--space-5, 1.25rem);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3, 0.75rem);
+    }
+    .upload-card h3 {
+      font-size: var(--text-sm, 0.875rem);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2, 0.5rem);
+      margin: 0;
+    }
+
+    .drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3, 0.75rem);
+      min-height: 130px;
+      border: 1.5px dashed var(--border, #393836);
+      border-radius: var(--radius-md, 0.5rem);
+      padding: var(--space-5, 1.25rem) var(--space-4, 1rem);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 180ms ease, background 180ms ease;
+      color: var(--muted, #797876);
+      font-size: var(--text-sm, 0.875rem);
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--primary, #4f98a3);
+      background: color-mix(in oklch, var(--primary, #4f98a3) 6%, var(--surface, #1c1b19));
+    }
+    .drop-zone svg {
+      color: var(--primary, #4f98a3);
+      flex-shrink: 0;
+    }
+    .drop-zone .dz-label { font-weight: 500; color: var(--text, #cdccca); line-height: 1.4; }
+    .drop-zone .dz-hint  { font-size: var(--text-xs, 0.75rem); color: var(--muted, #797876); }
+    /* Hidden real input covers entire zone for click */
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1, 0.25rem);
+      font-size: var(--text-xs, 0.75rem);
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--radius-full, 9999px);
+      font-weight: 500;
+      width: fit-content;
+    }
+    .status-idle { background: var(--surface-offset, #1d1c1a); color: var(--muted, #797876); }
+    .status-ok   { background: color-mix(in oklch, var(--success, #6daa45) 12%, transparent); color: var(--success, #6daa45); }
+    .status-err  { background: color-mix(in oklch, var(--error, #d163a7) 12%, transparent); color: var(--error, #d163a7); }
+
+    .run-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4, 1rem);
+      flex-wrap: wrap;
+      padding-top: var(--space-4, 1rem);
+      border-top: 1px solid var(--divider, #262523);
+    }
+
+    /* Badge overrides if not in styles.css */
+    .badge { font-size: 0.68rem; font-weight: 600; padding: 0.18rem 0.5rem; border-radius: var(--radius-full, 9999px); }
+    .badge-blue  { background: color-mix(in oklch, #5591c7 15%, transparent); color: #5591c7; }
+    .badge-green { background: color-mix(in oklch, #6daa45 15%, transparent); color: #6daa45; }
+  </style>
 </head>
 <body>
 <div class="app">
@@ -19,7 +113,7 @@
       Overview Hub
     </a>
     <a href="combined-analyzer.html" class="active">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Combined Analyzer
     </a>
     <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/" target="_blank" rel="noopener">
@@ -56,25 +150,41 @@
     <!-- UPLOAD -->
     <div class="upload-section">
       <div class="upload-grid">
+
+        <!-- LEFT: Breaches File -->
         <div class="upload-card">
-          <h3>Breaches Files <span class="badge badge-blue">Excel .xlsx</span></h3>
-          <label class="drop-zone" id="dz-breaches">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div>Drop V2 Breaches .xlsx files here<br><small style="color:var(--faint)">or click to browse — multiple files OK</small></div>
+          <h3>Breaches File <span class="badge badge-blue">Excel .xlsx</span></h3>
+          <div class="drop-zone" id="dz-breaches">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17,8 12,3 7,8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div class="dz-label">Drop .xlsx Breaches files here</div>
+            <div class="dz-hint">or click to browse — multiple files OK</div>
             <input id="breachesFiles" type="file" accept=".xlsx,.xls" multiple />
-          </label>
+          </div>
           <div id="breachesStatus" class="status-tag status-idle">No files loaded</div>
         </div>
+
+        <!-- RIGHT: SLA File -->
         <div class="upload-card">
-          <h3>SLA Files <span class="badge badge-green">CSV or XLSX</span></h3>
-          <label class="drop-zone" id="dz-sla">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div>Drop 3093 SLA .csv or .xlsx files here<br><small style="color:var(--faint)">English &amp; German headers auto-detected</small></div>
+          <h3>SLA File <span class="badge badge-green">CSV or XLSX</span></h3>
+          <div class="drop-zone" id="dz-sla">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17,8 12,3 7,8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div class="dz-label">Drop .csv or .xlsx SLA files here</div>
+            <div class="dz-hint">English &amp; German headers auto-detected</div>
             <input id="slaFiles" type="file" accept=".csv,.xlsx,.xls" multiple />
-          </label>
+          </div>
           <div id="slaStatus" class="status-tag status-idle">No files loaded</div>
         </div>
+
       </div>
+
       <div class="run-row">
         <div class="filter-group">
           <label>Month</label>
@@ -85,7 +195,10 @@
             <option value="May">May</option>
           </select>
         </div>
-        <button id="runAnalysis" class="btn btn-primary" disabled>▶ Run Analysis</button>
+        <button id="runAnalysis" class="btn btn-primary" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+          Run Analysis
+        </button>
         <button id="clearAll" class="btn-outline">Clear All</button>
       </div>
     </div>
@@ -110,7 +223,7 @@
         <div id="kpiRow" class="kpis"></div>
         <div class="charts-grid">
           <div class="chart-card"><h4>Monthly Breach Trend by SLA Code</h4><canvas id="trendChart"></canvas></div>
-          <div class="chart-card"><h4>Breaches by Source (Breaches file vs SLA file)</h4><canvas id="sourceChart"></canvas></div>
+          <div class="chart-card"><h4>Breaches by Source</h4><canvas id="sourceChart"></canvas></div>
           <div class="chart-card"><h4>Top 10 Applications by Breach Count</h4><canvas id="topicChart"></canvas></div>
           <div class="chart-card"><h4>Queue Distribution (AOS vs ILZ)</h4><canvas id="queueChart"></canvas></div>
         </div>
@@ -156,11 +269,19 @@
         </div>
         <div class="filter-group">
           <label>Source</label>
-          <select id="tableSrcFilter"><option value="all">All Sources</option><option value="breaches">Breaches file</option><option value="sla">SLA file</option></select>
+          <select id="tableSrcFilter">
+            <option value="all">All Sources</option>
+            <option value="breaches">Breaches file</option>
+            <option value="sla">SLA file</option>
+          </select>
         </div>
         <div class="filter-group">
           <label>Breach</label>
-          <select id="tableBreachFilter"><option value="all">All</option><option value="yes">Breach only</option><option value="no">No breach</option></select>
+          <select id="tableBreachFilter">
+            <option value="all">All</option>
+            <option value="yes">Breach only</option>
+            <option value="no">No breach</option>
+          </select>
         </div>
       </div>
       <div id="fullTableWrap" class="table-wrap"></div>
@@ -185,6 +306,14 @@
       :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   });
 })();
+
+// ─── DRAG & DROP HIGHLIGHT ───────────────────────────────────────────────────
+['dz-breaches','dz-sla'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');});
+});
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 const MISSING_KSLS=['KSL-2a','KSL-2b','KSL-2c','KSL-3a','KSL-5b','KSL-6'];
@@ -351,11 +480,11 @@ function showBar(msg,err=false){
 function pct(a,b){return b?((a/b)*100).toFixed(1)+'%':'—';}
 function heatColor(rate){
   if(rate===null) return 'transparent';
-  if(rate===0) return 'var(--success)' ;
-  if(rate<5)  return '#d4dfcc';
-  if(rate<15) return '#e7d7c4';
-  if(rate<30) return '#f0d5b0';
-  return '#e0ced7';
+  if(rate===0) return 'color-mix(in oklch,#6daa45 18%,transparent)';
+  if(rate<5)  return 'color-mix(in oklch,#6daa45 10%,transparent)';
+  if(rate<15) return 'color-mix(in oklch,#d19900 15%,transparent)';
+  if(rate<30) return 'color-mix(in oklch,#da7101 18%,transparent)';
+  return 'color-mix(in oklch,#d163a7 18%,transparent)';
 }
 
 // ─── FILE HANDLERS ──────────────────────────────────────────────────────────
@@ -472,8 +601,8 @@ function renderKPIs(recs){
   document.getElementById('kpiRow').innerHTML=[
     kpiCard('Total Records',total.toLocaleString(),'all files combined',''),
     kpiCard('Total Breaches',tb.toLocaleString(),rate+'% breach rate','kpi-breach'),
-    kpiCard('Breaches files',recs.filter(r=>r.is_breach&&r.source==='breaches').length.toLocaleString(),'from V2 Excel',''),
-    kpiCard('SLA files',recs.filter(r=>r.is_breach&&r.source==='sla').length.toLocaleString(),'from 3093 CSV/XLSX',''),
+    kpiCard('Breaches file',recs.filter(r=>r.is_breach&&r.source==='breaches').length.toLocaleString(),'from Excel',''),
+    kpiCard('SLA file',recs.filter(r=>r.is_breach&&r.source==='sla').length.toLocaleString(),'from CSV/XLSX',''),
     kpiCard('Languages hit',langs.size,'with ≥1 breach',langs.size>10?'kpi-warn':''),
     kpiCard('Apps affected',apps.size,'unique topics','')
   ].join('');
@@ -557,9 +686,9 @@ function renderLanguageHeatmap(recs){
     codes.forEach(c=>{
       const cr=lr.filter(r=>r.sla_code===c);
       const b=cr.filter(r=>r.is_breach).length;
-      const r=cr.length?((b/cr.length)*100).toFixed(0):null;
-      const bg=r!==null?heatColor(parseFloat(r)):'transparent';
-      html+=`<td class="heat-cell" style="background:${bg}">${r!==null?r+'%':'—'}</td>`;
+      const rv=cr.length?((b/cr.length)*100).toFixed(0):null;
+      const bg=rv!==null?heatColor(parseFloat(rv)):'transparent';
+      html+=`<td class="heat-cell" style="background:${bg}">${rv!==null?rv+'%':'—'}</td>`;
     });
     html+=`<td style="font-weight:600">${totalB}</td></tr>`;
   });
@@ -645,7 +774,8 @@ function renderFullTable(){
 document.getElementById('exportCsv').addEventListener('click',()=>{
   const r=getFiltered();
   const cols=['month','sla_code','sla_name','source','schema','iso_language','language_name','queue','queue_norm','topic','incident_ticket','status','numerator','denominator','compare_dir','is_breach','excluded','file'];
-  const csv=[cols.join(','),...r.map(row=>cols.map(c=>`"${String(row[c]??'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const csv=[cols.join(','),...r.map(row=>cols.map(c=>`"${String(row[c]??'').replace(/"/g,'""')}"`)
+  .join(','))].join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download='combined-breach-analysis.csv';
