@@ -48,8 +48,8 @@
   <!-- UPLOAD SECTION -->
   <section class="upload-grid" id="uploadSection">
     <article class="panel">
-      <h2>V2 Excel files</h2>
-      <p class="muted">March, April &amp; May V2 breach files (KSL-4, KM-1, KSL-5a, KM-2)</p>
+      <h2>Breaches files</h2>
+      <p class="muted">March, April &amp; May Breaches files (KSL-4, KM-1, KSL-5a, KM-2)</p>
       <label class="drop-zone" id="v2DropZone">
         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <span>Drop .xlsx files or click to browse</span>
@@ -58,8 +58,8 @@
       <div id="v2Status" class="status-tag status-idle">No files loaded</div>
     </article>
     <article class="panel">
-      <h2>3093 CSV files</h2>
-      <p class="muted">Monthly 3093 SLA detail exports (KSL-2, KSL-3, KSL-5b, KSL-6)</p>
+      <h2>SLA files</h2>
+      <p class="muted">Monthly SLA detail exports (KSL-2, KSL-3, KSL-5b, KSL-6)</p>
       <label class="drop-zone" id="csvDropZone">
         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <span>Drop .csv files or click to browse</span>
@@ -119,7 +119,7 @@
       <div class="panel-header">
         <div>
           <h2>Language × SLA breach rate heatmap</h2>
-          <p class="muted">Breach rate % per language per SLA code (3093 missing KSLs only). Red = high rate.</p>
+          <p class="muted">Breach rate % per language per SLA code (SLA missing KSLs only). Red = high rate.</p>
         </div>
         <div class="pill-group" id="langMonthFilter">
           <button class="pill active" data-lmonth="all">All months</button>
@@ -326,11 +326,9 @@ function buildGrandTotal(records) {
   const rate     = total ? (breaches / total * 100) : 0;
   const rateStr  = rate.toFixed(1);
 
-  // V2 vs 3093 split (breaches only)
   const v2B  = records.filter(r => r.is_breach && r.source === 'V2').length;
   const csvB = records.filter(r => r.is_breach && r.source === '3093').length;
 
-  // Colour the rate chip based on severity
   const rateColor = rate >= 15 ? '#a13544' : rate >= 5 ? '#d19900' : '#437a22';
   const rateBg    = rate >= 15 ? '#fdf0f1' : rate >= 5 ? '#fdf8e8' : '#edf7e8';
   const rateBgDark= rate >= 15 ? '#2d1f22' : rate >= 5 ? '#2d2818' : '#1e2a1e';
@@ -360,11 +358,11 @@ function buildGrandTotal(records) {
     <div class="gts-split">
       <span class="gts-split-item">
         <span class="gts-split-dot" style="background:#01696f"></span>
-        V2 breaches: <strong>${v2B.toLocaleString()}</strong>
+        Breaches file: <strong>${v2B.toLocaleString()}</strong>
       </span>
       <span class="gts-split-item">
         <span class="gts-split-dot" style="background:#a12c7b"></span>
-        3093 breaches: <strong>${csvB.toLocaleString()}</strong>
+        SLA file: <strong>${csvB.toLocaleString()}</strong>
       </span>
     </div>`;
 }
@@ -422,7 +420,7 @@ function buildTrendChart() {
 function buildSourceChart() {
   const groups = {};
   allRecords.filter(r => r.is_breach).forEach(r => {
-    const g = MISSING_KSLS.includes(r.sla_code) ? `3093 – ${r.sla_code}` : `V2 – ${r.sla_code}`;
+    const g = MISSING_KSLS.includes(r.sla_code) ? `SLA – ${r.sla_code}` : `Breaches – ${r.sla_code}`;
     groups[g] = (groups[g] || 0) + 1;
   });
   const sorted = Object.entries(groups).sort((a,b) => b[1]-a[1]);
@@ -913,7 +911,6 @@ document.getElementById('runMerge').addEventListener('click', () => {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 
-/* Dark mode overrides */
 [data-theme="dark"] .grand-total-banner {
   background: var(--surface, #1c1b19);
   border-color: var(--border, #393836);
@@ -922,7 +919,6 @@ document.getElementById('runMerge').addEventListener('click', () => {
 [data-theme="dark"] .gts-breach .gts-num { color: #dd6974; }
 [data-theme="dark"] .gts-ok    .gts-num  { color: #6daa45; }
 
-/* Mobile: stack stats vertically */
 @media (max-width: 600px) {
   .gts-main   { flex-direction: column; align-items: stretch; gap: 12px; }
   .gts-divider { display: none; }
