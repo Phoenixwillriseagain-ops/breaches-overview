@@ -1,62 +1,550 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Combined Analyzer</title>
+  <title>Combined Analyzer — Breaches Overview</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <script type="module" src="./js/app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <header class="app-header">
+
+<header class="app-header">
+  <div class="header-left">
+    <a href="./index.html" class="back-link">← Overview</a>
     <div>
-      <p class="eyebrow">Phase 1</p>
+      <p class="eyebrow">Breaches Overview</p>
       <h1>Combined Analyzer</h1>
     </div>
-    <a class="btn btn-secondary" href="./index.html">Back</a>
-  </header>
+  </div>
+  <button class="btn btn-secondary" data-theme-toggle aria-label="Toggle theme">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
+</header>
 
-  <main class="app-shell">
-    <section class="upload-grid">
-      <article class="panel">
-        <h2>V2 Excel files</h2>
-        <p class="muted">Drop March, April, and May V2 files here.</p>
+<main class="app-shell">
+
+  <!-- UPLOAD SECTION -->
+  <section class="upload-grid" id="uploadSection">
+    <article class="panel">
+      <h2>V2 Excel files</h2>
+      <p class="muted">March, April &amp; May V2 breach files (KSL-4, KM-1, KSL-5a, KM-2)</p>
+      <label class="drop-zone" id="v2DropZone">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Drop .xlsx files or click to browse</span>
         <input id="v2Files" type="file" accept=".xlsx,.xls" multiple />
-        <div id="v2Status" class="status-box">No V2 files loaded.</div>
-      </article>
-
-      <article class="panel">
-        <h2>3093 CSV files</h2>
-        <p class="muted">Drop 3093 monthly CSV exports here.</p>
+      </label>
+      <div id="v2Status" class="status-tag status-idle">No files loaded</div>
+    </article>
+    <article class="panel">
+      <h2>3093 CSV files</h2>
+      <p class="muted">Monthly 3093 SLA detail exports (KSL-2, KSL-3, KSL-5b, KSL-6)</p>
+      <label class="drop-zone" id="csvDropZone">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Drop .csv files or click to browse</span>
         <input id="csvFiles" type="file" accept=".csv" multiple />
-        <div id="csvStatus" class="status-box">No 3093 files loaded.</div>
-      </article>
-    </section>
+      </label>
+      <div id="csvStatus" class="status-tag status-idle">No files loaded</div>
+    </article>
+  </section>
 
-    <section class="panel action-panel">
-      <div>
-        <h2>Build unified dataset</h2>
-        <p class="muted">This first version validates parsing, month assignment, and breach classification before the dashboard visuals are added.</p>
+  <div class="run-row">
+    <button id="runMerge" class="btn btn-primary" disabled>Load files to run analysis</button>
+    <span id="recordCount" class="muted"></span>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tab-bar" id="tabBar" hidden>
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="language">Language Analysis</button>
+    <button class="tab-btn" data-tab="missing">Missing KSLs</button>
+    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>
+  </nav>
+
+  <!-- TAB: OVERVIEW -->
+  <section class="tab-panel" id="tab-overview" hidden>
+    <div class="month-filter">
+      <label class="muted">Filter month:</label>
+      <div class="pill-group" id="monthFilter">
+        <button class="pill active" data-month="all">All</button>
+        <button class="pill" data-month="March">March</button>
+        <button class="pill" data-month="April">April</button>
+        <button class="pill" data-month="May">May</button>
       </div>
-      <button id="runMerge" class="btn btn-primary">Run parser</button>
-    </section>
+    </div>
+    <div id="kpiGrid" class="kpi-grid"></div>
+    <div class="chart-grid">
+      <div class="panel chart-panel">
+        <h2>Monthly breach trend by SLA</h2>
+        <p class="muted chart-note">Non-excluded breaches per SLA code across March, April and May.</p>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="panel chart-panel">
+        <h2>Breach distribution by source</h2>
+        <canvas id="sourceChart"></canvas>
+      </div>
+    </div>
+  </section>
 
-    <section class="results-grid">
-      <article class="panel">
-        <h2>Unified record summary</h2>
-        <pre id="summaryOutput" class="code-box">Waiting for input...</pre>
-      </article>
-      <article class="panel">
-        <h2>Preview rows</h2>
-        <pre id="previewOutput" class="code-box">No preview yet.</pre>
-      </article>
-    </section>
-  </main>
+  <!-- TAB: LANGUAGE -->
+  <section class="tab-panel" id="tab-language" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Language × SLA breach rate heatmap</h2>
+          <p class="muted">Breach rate % per language per SLA code (3093 missing KSLs only). Red = high rate.</p>
+        </div>
+        <div class="pill-group" id="langMonthFilter">
+          <button class="pill active" data-lmonth="all">All months</button>
+          <button class="pill" data-lmonth="March">March</button>
+          <button class="pill" data-lmonth="April">April</button>
+          <button class="pill" data-lmonth="May">May</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="heatmapTable" class="heatmap-table"></table>
+      </div>
+    </div>
+    <div class="panel chart-panel" style="margin-top:20px">
+      <h2>Breach count by language (all SLAs)</h2>
+      <canvas id="langChart"></canvas>
+    </div>
+  </section>
+
+  <!-- TAB: MISSING KSLs -->
+  <section class="tab-panel" id="tab-missing" hidden>
+    <div class="missing-ksl-grid" id="missingKslCards"></div>
+    <div class="panel chart-panel" style="margin-top:20px">
+      <h2>Missing KSL monthly trend</h2>
+      <p class="muted chart-note">KSL-2a, KSL-2b, KSL-2c, KSL-3a, KSL-5b, KSL-6 breach counts per month.</p>
+      <canvas id="missingTrendChart"></canvas>
+    </div>
+  </section>
+
+  <!-- TAB: QUEUE -->
+  <section class="tab-panel" id="tab-queue" hidden>
+    <div class="chart-grid">
+      <div class="panel chart-panel">
+        <h2>Top queues by breach count</h2>
+        <p class="muted chart-note">Combined across all SLA codes and months.</p>
+        <canvas id="queueChart"></canvas>
+      </div>
+      <div class="panel chart-panel">
+        <h2>Top applications driving breaches</h2>
+        <p class="muted chart-note">#SW#AOS and #SW#ISTA are systemic drivers across all missing KSLs.</p>
+        <canvas id="topicChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const MONTHS = ['March', 'April', 'May'];
+const MISSING_KSLS = ['KSL-2a', 'KSL-2b', 'KSL-2c', 'KSL-3a', 'KSL-5b', 'KSL-6'];
+
+function detectMonthFromFilename(name = '') {
+  const l = name.toLowerCase();
+  if (l.includes('march')) return 'March';
+  if (l.includes('april')) return 'April';
+  if (l.includes('may') || l.includes('-14') || l.includes('_14')) return 'May';
+  if (l.includes('-12') || l.includes('_12')) return 'May';
+  if (l.includes('-13') || l.includes('_13')) return 'April';
+  return null;
+}
+
+function monthFromDate(value) {
+  if (!value) return null;
+  const str = String(value).replace(/\//g, '-');
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return names[d.getMonth()] || null;
+}
+
+function normalizeQueue(q = '') { return String(q).replace(/^FT_use-/i, ''); }
+
+function toNum(v) {
+  if (v === null || v === undefined || v === '') return NaN;
+  return Number(String(v).replace(',', '.'));
+}
+
+// ─── V2 PARSER ────────────────────────────────────────────────────────────────
+function parseV2Workbook(fileName, workbook) {
+  const records = [];
+  const fallbackMonth = detectMonthFromFilename(fileName);
+  workbook.SheetNames.filter(n => n !== 'Instructions').forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const hIdx = rows.findIndex(r => r.some(c => String(c||'').trim() === 'Incident Ticket'));
+    if (hIdx === -1) return;
+    const headers = rows[hIdx].map(c => String(c).trim());
+    rows.slice(hIdx + 1).filter(r => r.some(Boolean)).forEach(row => {
+      const item = Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']));
+      if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
+      const excluded = Number(item.Excluded || 0) === 1;
+      records.push({
+        source: 'V2', month: fallbackMonth, sla_code: sheetName,
+        incident_ticket: item['Incident Ticket'] || '',
+        queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
+        iso_language: item.ISO_Language || '', topic: item.TOPIC || '',
+        excluded, is_breach: !excluded
+      });
+    });
+  });
+  return records;
+}
+
+// ─── CSV PARSER ───────────────────────────────────────────────────────────────
+const COL_MAP = {
+  'SLA Kennzahl': 'sla_code', 'SLA Kennzahl Name': 'sla_name',
+  'SLA Kennzahl Vergleichsart': 'compare_dir',
+  'Anzahl SLAs Kennzahl Z\u00e4hler vor SR': 'numerator',
+  'Anzahl SLAs Kennzahl Nenner vor SR': 'denominator',
+  'Element geschlossen am': 'date_closed', 'Element Status': 'status',
+  'Incident Element Supportsprache': 'iso_language',
+  'Incident Element Supportsprache Name EN': 'language_name',
+  'Incident Ticket': 'incident_ticket', 'Ticket Gruppe': 'queue',
+  'KM Anwendung': 'topic'
+};
+
+function parse3093Csv(fileName, text) {
+  const result = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
+  return result.data.map(raw => {
+    const row = {};
+    Object.entries(COL_MAP).forEach(([src, tgt]) => { row[tgt] = raw[src] ?? ''; });
+    const num = toNum(row.numerator), den = toNum(row.denominator), dir = toNum(row.compare_dir);
+    let isBreach = false;
+    if (dir === 1) isBreach = num < den;
+    if (dir === -1) isBreach = num > 0;
+    const month = monthFromDate(row.date_closed);
+    if (!MONTHS.includes(month)) return null;
+    return {
+      source: '3093', file_name: fileName, month,
+      sla_code: row.sla_code, sla_name: row.sla_name,
+      incident_ticket: row.incident_ticket, status: row.status,
+      queue: row.queue, queue_normalized: normalizeQueue(row.queue),
+      iso_language: row.iso_language, language_name: row.language_name,
+      topic: row.topic, excluded: false, is_breach: Boolean(isBreach)
+    };
+  }).filter(Boolean);
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let allRecords = [], v2Records = [], csvRecords = [];
+let activeMonth = 'all', activeLangMonth = 'all';
+let trendChartInst, sourceChartInst, langChartInst, missingTrendInst, queueChartInst, topicChartInst;
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function setStatus(el, text, type) {
+  el.textContent = text;
+  el.className = `status-tag status-${type}`;
+}
+
+function checkReady() {
+  const btn = document.getElementById('runMerge');
+  if (v2Records.length > 0 || csvRecords.length > 0) {
+    btn.disabled = false;
+    btn.textContent = 'Run analysis';
+  }
+}
+
+function filteredRecords(month = activeMonth) {
+  if (month === 'all') return allRecords;
+  return allRecords.filter(r => r.month === month);
+}
+
+// ─── KPI CARDS ────────────────────────────────────────────────────────────────
+const SLA_COLORS = {
+  'KSL-4':'#01696f','KM-1':'#437a22','KSL-5a':'#006494','KM-2':'#7a39bb',
+  'KSL-2a':'#da7101','KSL-2b':'#d19900','KSL-2c':'#bb653b',
+  'KSL-3a':'#a12c7b','KSL-5b':'#a13544','KSL-6':'#6b675f'
+};
+
+function buildKpiGrid(records) {
+  const grid = document.getElementById('kpiGrid');
+  const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
+  grid.innerHTML = slaCodes.map(sla => {
+    const rows = records.filter(r => r.sla_code === sla);
+    const breaches = rows.filter(r => r.is_breach).length;
+    const total = rows.length;
+    const rate = total ? ((breaches / total) * 100).toFixed(1) : '0.0';
+    const color = SLA_COLORS[sla] || '#01696f';
+    // MoM arrow for 3093 source
+    let arrow = '';
+    if (MISSING_KSLS.includes(sla)) {
+      const mar = records.filter(r => r.sla_code === sla && r.month === 'March' && r.is_breach).length;
+      const may = records.filter(r => r.sla_code === sla && r.month === 'May' && r.is_breach).length;
+      if (mar > 0) {
+        const chg = ((may - mar) / mar * 100).toFixed(0);
+        const up = may >= mar;
+        arrow = `<span class="trend ${up ? 'trend-up' : 'trend-down'}">${up ? '\u2191' : '\u2193'} ${Math.abs(chg)}%</span>`;
+      }
+    }
+    return `<article class="kpi-card" style="--accent:${color}">
+      <p class="kpi-label">${sla}</p>
+      <p class="kpi-value">${breaches.toLocaleString()}</p>
+      <p class="kpi-sub">of ${total.toLocaleString()} — ${rate}% breach rate ${arrow}</p>
+    </article>`;
+  }).join('');
+}
+
+// ─── TREND CHART ──────────────────────────────────────────────────────────────
+function buildTrendChart() {
+  const slaCodes = [...new Set(allRecords.map(r => r.sla_code))].sort();
+  const datasets = slaCodes.map(sla => ({
+    label: sla,
+    data: MONTHS.map(m => allRecords.filter(r => r.sla_code === sla && r.month === m && r.is_breach).length),
+    borderColor: SLA_COLORS[sla] || '#999',
+    backgroundColor: (SLA_COLORS[sla] || '#999') + '22',
+    tension: 0.35, pointRadius: 5, pointHoverRadius: 7, fill: false, borderWidth: 2
+  }));
+  if (trendChartInst) trendChartInst.destroy();
+  trendChartInst = new Chart(document.getElementById('trendChart'), {
+    type: 'line', data: { labels: MONTHS, datasets },
+    options: { responsive: true, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'Breach count' } } }
+    }
+  });
+}
+
+// ─── SOURCE DOUGHNUT ─────────────────────────────────────────────────────────
+function buildSourceChart() {
+  const groups = {};
+  allRecords.filter(r => r.is_breach).forEach(r => {
+    const g = MISSING_KSLS.includes(r.sla_code) ? `3093 – ${r.sla_code}` : `V2 – ${r.sla_code}`;
+    groups[g] = (groups[g] || 0) + 1;
+  });
+  const sorted = Object.entries(groups).sort((a,b) => b[1]-a[1]);
+  if (sourceChartInst) sourceChartInst.destroy();
+  sourceChartInst = new Chart(document.getElementById('sourceChart'), {
+    type: 'doughnut',
+    data: { labels: sorted.map(s=>s[0]), datasets: [{ data: sorted.map(s=>s[1]),
+      backgroundColor: sorted.map((_,i) => Object.values(SLA_COLORS)[i % 10]) }] },
+    options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } }
+  });
+}
+
+// ─── LANGUAGE HEATMAP ────────────────────────────────────────────────────────
+function buildHeatmap(monthFilter = 'all') {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code) && (monthFilter === 'all' || r.month === monthFilter));
+  const langs = [...new Set(src.map(r => r.iso_language))].filter(Boolean).sort();
+  const slaCols = MISSING_KSLS.filter(s => src.some(r => r.sla_code === s));
+  const table = document.getElementById('heatmapTable');
+  const header = `<thead><tr><th>Language</th>${slaCols.map(s=>`<th>${s}</th>`).join('')}<th>Total breaches</th></tr></thead>`;
+  const rows = langs.map(lang => {
+    const cells = slaCols.map(sla => {
+      const filtered = src.filter(r => r.iso_language === lang && r.sla_code === sla);
+      const total = filtered.length, breaches = filtered.filter(r=>r.is_breach).length;
+      const rate = total ? (breaches/total*100) : 0;
+      const bg = rate === 0 ? '' : `background:rgba(161,44,123,${Math.min(rate/25,1)*0.7})`;
+      const text = rate > 0 ? `${rate.toFixed(1)}%` : '–';
+      return `<td style="${bg};color:${rate>12?'#fff':'inherit'}" title="${breaches}/${total}">${text}</td>`;
+    });
+    const totalB = src.filter(r => r.iso_language === lang && r.is_breach).length;
+    return `<tr><td><strong>${lang}</strong></td>${cells.join('')}<td><strong>${totalB}</strong></td></tr>`;
+  });
+  table.innerHTML = header + `<tbody>${rows.join('')}</tbody>`;
+}
+
+// ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
+function buildLangChart() {
+  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language);
+  const counts = {};
+  breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  if (langChartInst) langChartInst.destroy();
+  langChartInst = new Chart(document.getElementById('langChart'), {
+    type: 'bar',
+    data: { labels: sorted.map(s=>s[0]), datasets: [{ label: 'Breach count',
+      data: sorted.map(s=>s[1]), backgroundColor: '#01696f99', borderColor: '#01696f', borderWidth: 1 }] },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } } }
+  });
+}
+
+// ─── MISSING KSL CARDS ───────────────────────────────────────────────────────
+const KSL_DESC = {
+  'KSL-2a':'Handling Time – Low ≤ 180 min',
+  'KSL-2b':'Handling Time – Low ≤ 300 min',
+  'KSL-2c':'Handling Time – Medium ≤ 150 min',
+  'KSL-3a':'Reaction Time ≤ 30 min',
+  'KSL-5b':'Resolution Quality',
+  'KSL-6':'COMPASS Linking'
+};
+
+function buildMissingKslCards() {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
+  const container = document.getElementById('missingKslCards');
+  container.innerHTML = MISSING_KSLS.map(sla => {
+    const rows = src.filter(r => r.sla_code === sla);
+    const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
+    const rate = total ? (breaches/total*100).toFixed(1) : '0.0';
+    const mar = rows.filter(r=>r.month==='March'&&r.is_breach).length;
+    const apr = rows.filter(r=>r.month==='April'&&r.is_breach).length;
+    const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
+    let chgLabel = '';
+    if (mar > 0) {
+      const chg = ((may-mar)/mar*100).toFixed(0);
+      const up = may >= mar;
+      chgLabel = `<span class="trend ${up?'trend-up':'trend-down'}">${up?'\u2191':'\u2193'} ${Math.abs(chg)}% Mar\u2192May</span>`;
+    }
+    const color = SLA_COLORS[sla] || '#01696f';
+    return `<article class="kpi-card" style="--accent:${color}">
+      <p class="kpi-label">${sla}</p>
+      <p class="kpi-desc muted">${KSL_DESC[sla]||''}</p>
+      <p class="kpi-value">${rate}%<span style="font-size:14px;font-weight:400"> breach rate</span></p>
+      <p class="kpi-sub">${breaches} breaches / ${total} total ${chgLabel}</p>
+      <div class="mini-bars">
+        ${[['Mar',mar],['Apr',apr],['May',may]].map(([l,v])=>`<span class="mini-bar-wrap"><span class="mini-bar" style="height:${Math.min(v*4,56)}px;background:${color}"></span><span class="mini-label">${l}<br>${v}</span></span>`).join('')}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function buildMissingTrendChart() {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
+  const datasets = MISSING_KSLS.map(sla => ({
+    label: sla,
+    data: MONTHS.map(m => src.filter(r=>r.sla_code===sla&&r.month===m&&r.is_breach).length),
+    borderColor: SLA_COLORS[sla]||'#999',
+    backgroundColor: (SLA_COLORS[sla]||'#999')+'22',
+    tension: 0.35, pointRadius: 5, fill: false, borderWidth: 2
+  }));
+  if (missingTrendInst) missingTrendInst.destroy();
+  missingTrendInst = new Chart(document.getElementById('missingTrendChart'), {
+    type: 'line', data: { labels: MONTHS, datasets },
+    options: { responsive: true, interaction: { mode:'index', intersect:false },
+      plugins: { legend: { position:'bottom', labels:{boxWidth:12,padding:16} } },
+      scales: { y: { beginAtZero:true, title:{display:true,text:'Breach count'} } }
+    }
+  });
+}
+
+// ─── QUEUE & TOPIC CHARTS ────────────────────────────────────────────────────
+function buildQueueChart() {
+  const counts = {};
+  allRecords.filter(r=>r.is_breach&&r.queue_normalized).forEach(r=>{
+    counts[r.queue_normalized]=(counts[r.queue_normalized]||0)+1;
+  });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  if (queueChartInst) queueChartInst.destroy();
+  queueChartInst = new Chart(document.getElementById('queueChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+      data:sorted.map(s=>s[1]), backgroundColor:'#006494aa', borderColor:'#006494', borderWidth:1}] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true}} }
+  });
+}
+
+function buildTopicChart() {
+  const counts = {};
+  allRecords.filter(r=>r.is_breach&&r.topic).forEach(r=>{
+    counts[r.topic]=(counts[r.topic]||0)+1;
+  });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if (topicChartInst) topicChartInst.destroy();
+  topicChartInst = new Chart(document.getElementById('topicChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+      data:sorted.map(s=>s[1]), backgroundColor:'#a12c7baa', borderColor:'#a12c7b', borderWidth:1}] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true}} }
+  });
+}
+
+// ─── TAB LOGIC ────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).hidden = false;
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+}
+
+document.getElementById('tabBar').addEventListener('click', e => {
+  if (e.target.dataset.tab) showTab(e.target.dataset.tab);
+});
+
+// ─── MONTH FILTER ─────────────────────────────────────────────────────────────
+document.getElementById('monthFilter').addEventListener('click', e => {
+  if (!e.target.dataset.month) return;
+  activeMonth = e.target.dataset.month;
+  document.querySelectorAll('#monthFilter .pill').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  buildKpiGrid(filteredRecords());
+});
+
+document.getElementById('langMonthFilter').addEventListener('click', e => {
+  if (!e.target.dataset.lmonth) return;
+  activeLangMonth = e.target.dataset.lmonth;
+  document.querySelectorAll('#langMonthFilter .pill').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  buildHeatmap(activeLangMonth);
+});
+
+// ─── FILE INPUTS ──────────────────────────────────────────────────────────────
+document.getElementById('v2Files').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  v2Records = [];
+  for (const file of files) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array' });
+    v2Records.push(...parseV2Workbook(file.name, wb));
+  }
+  setStatus(document.getElementById('v2Status'), `${files.length} file(s) — ${v2Records.length} rows parsed`, 'ok');
+  checkReady();
+});
+
+document.getElementById('csvFiles').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  csvRecords = [];
+  for (const file of files) {
+    const text = await file.text();
+    csvRecords.push(...parse3093Csv(file.name, text));
+  }
+  setStatus(document.getElementById('csvStatus'), `${files.length} file(s) — ${csvRecords.length} rows parsed`, 'ok');
+  checkReady();
+});
+
+// ─── RUN ──────────────────────────────────────────────────────────────────────
+document.getElementById('runMerge').addEventListener('click', () => {
+  allRecords = [...v2Records, ...csvRecords];
+  document.getElementById('recordCount').textContent =
+    `${allRecords.length.toLocaleString()} total records — ${allRecords.filter(r=>r.is_breach).length.toLocaleString()} breaches`;
+
+  buildKpiGrid(allRecords);
+  buildTrendChart();
+  buildSourceChart();
+  buildHeatmap();
+  buildLangChart();
+  buildMissingKslCards();
+  buildMissingTrendChart();
+  buildQueueChart();
+  buildTopicChart();
+
+  document.getElementById('tabBar').hidden = false;
+  showTab('overview');
+});
+
+// ─── THEME TOGGLE ────────────────────────────────────────────────────────────
+(function(){
+  const t = document.querySelector('[data-theme-toggle]');
+  const r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  r.setAttribute('data-theme', d);
+  t && t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+  });
+})();
+</script>
 </body>
 </html>
