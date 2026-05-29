@@ -1,1 +1,643 @@
-COMBINED_PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Combined Analyzer — Breaches Overview</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,800&display=swap" rel="stylesheet">
+  <link href="styles.css" rel="stylesheet">
+  <style>
+    .drop-zone.drag-over { border-color: var(--primary) !important; background: oklch(from var(--primary) l c h / 0.06) !important; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <nav class="app-nav">
+    <a href="index.html">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Overview Hub
+    </a>
+    <a href="combined-analyzer.html" class="active">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Combined Analyzer
+    </a>
+    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Breaches Tracker
+    </a>
+    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/reporter.html" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+      Reporter
+    </a>
+    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/converter.html" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Converter
+    </a>
+  </nav>
+
+  <header class="header">
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+      Combined Analyzer
+    </div>
+    <div class="header-right">
+      <button class="theme-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Upload Section -->
+    <section class="upload-section">
+      <div class="upload-grid">
+
+        <div class="upload-card">
+          <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            V2 Breaches File
+          </h3>
+          <div class="drop-zone" id="dz-breaches">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div>Drop Excel file here or <strong>browse</strong></div>
+            <small>Supports .xlsx / .xls</small>
+            <input type="file" id="breachesFiles" accept=".xlsx,.xls">
+          </div>
+          <div id="breachesStatus" class="status-tag status-idle">No file loaded</div>
+        </div>
+
+        <div class="upload-card">
+          <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            3093 SLA File
+          </h3>
+          <div class="drop-zone" id="dz-sla">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div>Drop CSV file here or <strong>browse</strong></div>
+            <small>Supports .csv</small>
+            <input type="file" id="slaFiles" accept=".csv">
+          </div>
+          <div id="slaStatus" class="status-tag status-idle">No file loaded</div>
+        </div>
+
+      </div>
+      <div class="run-row">
+        <button id="runMerge" class="btn btn-primary" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Run Analysis
+        </button>
+        <button id="exportCsv" class="btn-outline" disabled>Export CSV</button>
+        <button id="clearAll" class="btn-outline">Clear</button>
+        <span id="runStatus" style="font-size:0.78rem;color:var(--muted)"></span>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <div class="filters" id="filtersBar" style="display:none">
+      <div class="filter-group">
+        <label>Month</label>
+        <select id="filterMonth"><option value="">All months</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Queue / Language</label>
+        <select id="filterQueue"><option value="">All queues</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Source</label>
+        <select id="filterSource">
+          <option value="">All sources</option>
+          <option value="v2">V2 Breaches</option>
+          <option value="sla">3093 SLA</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Breach only</label>
+        <select id="filterBreach">
+          <option value="">All</option>
+          <option value="yes">Breached</option>
+          <option value="no">Within SLA</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpis" id="kpiBar" style="display:none">
+      <div class="kpi kpi-breach">
+        <div class="kpi-label">Total Breaches</div>
+        <div class="kpi-value" id="kpiBreaches">—</div>
+        <div class="kpi-sub">across both sources</div>
+      </div>
+      <div class="kpi kpi-warn">
+        <div class="kpi-label">V2 Breaches</div>
+        <div class="kpi-value" id="kpiV2">—</div>
+        <div class="kpi-sub">from Excel file</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">3093 Breaches</div>
+        <div class="kpi-value" id="kpiSla">—</div>
+        <div class="kpi-sub">from CSV file</div>
+      </div>
+      <div class="kpi kpi-ok">
+        <div class="kpi-label">Total Rows</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+        <div class="kpi-sub">merged dataset</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Breach Rate</div>
+        <div class="kpi-value" id="kpiRate">—</div>
+        <div class="kpi-sub">% of total rows</div>
+      </div>
+      <div class="kpi kpi-warn">
+        <div class="kpi-label">Missing KSL</div>
+        <div class="kpi-value" id="kpiMissing">—</div>
+        <div class="kpi-sub">no resolution date</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-bar" id="tabNav" style="display:none">
+      <button class="tab-btn active" data-tab="alerts">⚠ Alerts</button>
+      <button class="tab-btn" data-tab="charts">Charts</button>
+      <button class="tab-btn" data-tab="heatmap">Language Heatmap</button>
+      <button class="tab-btn" data-tab="missing">Missing KSL</button>
+      <button class="tab-btn" data-tab="table">Full Table</button>
+    </div>
+
+    <!-- Tab: Alerts -->
+    <div class="tab-panel active" id="tab-alerts">
+      <div id="alertsContainer"></div>
+    </div>
+
+    <!-- Tab: Charts -->
+    <div class="tab-panel" id="tab-charts">
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h4>Breaches by Month</h4>
+          <canvas id="chartMonth"></canvas>
+        </div>
+        <div class="chart-card">
+          <h4>Source Breakdown</h4>
+          <canvas id="chartSource"></canvas>
+        </div>
+        <div class="chart-card">
+          <h4>Top 10 Queues by Breaches</h4>
+          <canvas id="chartQueue"></canvas>
+        </div>
+        <div class="chart-card">
+          <h4>Breach Rate by Month (%)</h4>
+          <canvas id="chartRate"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Language Heatmap -->
+    <div class="tab-panel" id="tab-heatmap">
+      <div class="section-header">
+        <div class="section-title">Language Breach Heatmap</div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="heatmapTable">
+          <thead><tr id="heatmapHead"></tr></thead>
+          <tbody id="heatmapBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Missing KSL -->
+    <div class="tab-panel" id="tab-missing">
+      <div class="section-header">
+        <div class="section-title">Records Missing KSL (No Resolution Date)</div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="missingTable">
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Source</th><th>Queue</th><th>Created</th><th>Age (days)</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="missingBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Full Table -->
+    <div class="tab-panel" id="tab-table">
+      <div class="section-header">
+        <div class="section-title">Merged Dataset</div>
+        <span id="rowCount" style="font-size:0.78rem;color:var(--muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="mainTable">
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Source</th><th>Queue</th><th>Month</th>
+              <th>Created</th><th>Resolved</th><th>SLA Target</th>
+              <th>Elapsed</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="mainBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <div class="status-bar" id="statusBar" style="display:none"></div>
+
+</div>
+
+<script>
+/* ── Theme toggle ─────────────────────────────────────────────── */
+(function(){
+  const t=document.querySelector('[data-theme-toggle]'),r=document.documentElement;
+  let d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  r.setAttribute('data-theme',d);
+  if(t)t.addEventListener('click',()=>{
+    d=d==='dark'?'light':'dark';
+    r.setAttribute('data-theme',d);
+    t.innerHTML=d==='dark'
+      ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  });
+})();
+
+/* ── Drag-drop setup ──────────────────────────────────────────── */
+// FIX 2 & 3: Forward dropped files to the hidden <input> and guard against
+// dragleave flickering caused by cursor entering child elements
+['dz-breaches','dz-sla'].forEach(id=>{
+  const el=document.getElementById(id);
+  const inputId=id==='dz-breaches'?'breachesFiles':'slaFiles';
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  // FIX 3 — only remove class when cursor truly leaves the zone, not a child element
+  el.addEventListener('dragleave',e=>{
+    if(!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
+  });
+  // FIX 2 — forward DataTransfer files to the hidden <input> and trigger its change handler
+  el.addEventListener('drop',e=>{
+    e.preventDefault();
+    el.classList.remove('drag-over');
+    const input=document.getElementById(inputId);
+    const dt=new DataTransfer();
+    Array.from(e.dataTransfer.files).forEach(f=>dt.items.add(f));
+    input.files=dt.files;
+    input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  // Click on zone triggers file browse
+  el.addEventListener('click',()=>document.getElementById(inputId).click());
+});
+
+/* ── State ────────────────────────────────────────────────────── */
+let breachesData=[], slaData=[], mergedData=[], charts={};
+
+/* ── File input handlers ──────────────────────────────────────── */
+document.getElementById('breachesFiles').addEventListener('change',function(){
+  const f=this.files[0]; if(!f) return;
+  setStatus('breachesStatus','loading','Reading…');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      breachesData=parseBreachesWorkbook(wb);
+      setStatus('breachesStatus','ok',`✓ ${breachesData.length} rows — ${f.name}`);
+      checkReady();
+    }catch(err){
+      setStatus('breachesStatus','error','Error: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(f);
+});
+
+document.getElementById('slaFiles').addEventListener('change',function(){
+  const f=this.files[0]; if(!f) return;
+  setStatus('slaStatus','loading','Reading…');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const results=Papa.parse(e.target.result,{header:true,skipEmptyLines:true,dynamicTyping:false});
+      slaData=parseSlaRows(results.data);
+      setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
+      checkReady();
+    }catch(err){
+      setStatus('slaStatus','error','Error: '+err.message);
+    }
+  };
+  reader.readAsText(f);
+});
+
+/* ── Parsers ──────────────────────────────────────────────────── */
+function parseBreachesWorkbook(wb){
+  const rows=[];
+  wb.SheetNames.forEach(name=>{
+    const ws=wb.Sheets[name];
+    const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+    data.forEach(r=>{
+      const created=parseDate(r['Created']||r['created']||r['Opened']||r['opened']||'');
+      const resolved=parseDate(r['Resolved']||r['resolved']||r['Closed']||r['closed']||'');
+      const queue=String(r['Queue']||r['queue']||r['Assignment group']||r['assignment_group']||name||'').trim();
+      const ticket=String(r['Number']||r['number']||r['Ticket']||r['ticket']||'').trim();
+      const slaTarget=parseFloat(r['SLA Target']||r['sla_target']||r['Target']||8)||8;
+      const elapsed=resolved&&created?(resolved-created)/3600000:null;
+      const breached=elapsed!=null?elapsed>slaTarget:true;
+      rows.push({ticket,source:'v2',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r});
+    });
+  });
+  return rows;
+}
+
+function parseSlaRows(data){
+  return data.map(r=>{
+    const created=parseDate(r['Opened']||r['Created']||r['created']||r['opened']||'');
+    const resolved=parseDate(r['Resolved']||r['resolved']||r['Closed']||r['closed']||'');
+    const queue=String(r['Queue']||r['queue']||r['Assignment group']||r['assignment_group']||r['Language']||r['language']||'').trim();
+    const ticket=String(r['Number']||r['number']||r['Ticket']||r['ticket']||'').trim();
+    const slaTarget=parseFloat(r['SLA Target']||r['sla_target']||r['Target']||8)||8;
+    const elapsed=resolved&&created?(resolved-created)/3600000:null;
+    const breached=elapsed!=null?elapsed>slaTarget:true;
+    return {ticket,source:'sla',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r};
+  });
+}
+
+function parseDate(val){
+  if(!val) return null;
+  const d=new Date(val);
+  return isNaN(d.getTime())?null:d;
+}
+
+function monthStr(d){
+  if(!d) return 'Unknown';
+  return d.toLocaleString('default',{month:'short',year:'numeric'});
+}
+
+/* ── Ready check ──────────────────────────────────────────────── */
+function checkReady(){
+  document.getElementById('runMerge').disabled=!(breachesData.length||slaData.length);
+}
+
+/* ── Run analysis ─────────────────────────────────────────────── */
+document.getElementById('runMerge').addEventListener('click',()=>{
+  mergedData=[...breachesData,...slaData];
+  document.getElementById('exportCsv').disabled=false;
+  document.getElementById('filtersBar').style.display='flex';
+  document.getElementById('kpiBar').style.display='grid';
+  document.getElementById('tabNav').style.display='flex';
+  populateFilters();
+  renderAll();
+  document.getElementById('runStatus').textContent=`Analysis complete — ${mergedData.length} rows merged`;
+});
+
+/* ── Filters ──────────────────────────────────────────────────── */
+function populateFilters(){
+  const months=[...new Set(mergedData.map(r=>r.month).filter(Boolean))].sort();
+  const queues=[...new Set(mergedData.map(r=>r.queue).filter(Boolean))].sort();
+  const mSel=document.getElementById('filterMonth');
+  const qSel=document.getElementById('filterQueue');
+  mSel.innerHTML='<option value="">All months</option>'+months.map(m=>`<option>${m}</option>`).join('');
+  qSel.innerHTML='<option value="">All queues</option>'+queues.map(q=>`<option>${q}</option>`).join('');
+}
+
+['filterMonth','filterQueue','filterSource','filterBreach'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',renderAll);
+});
+
+function getFiltered(){
+  const m=document.getElementById('filterMonth').value;
+  const q=document.getElementById('filterQueue').value;
+  const s=document.getElementById('filterSource').value;
+  const b=document.getElementById('filterBreach').value;
+  return mergedData.filter(r=>{
+    if(m && r.month!==m) return false;
+    if(q && r.queue!==q) return false;
+    if(s && r.source!==s) return false;
+    if(b==='yes' && !r.breached) return false;
+    if(b==='no' && r.breached) return false;
+    return true;
+  });
+}
+
+/* ── Render all ───────────────────────────────────────────────── */
+function renderAll(){
+  const data=getFiltered();
+  renderKPIs(data);
+  renderAlerts(data);
+  renderCharts(data);
+  renderHeatmap(data);
+  renderMissing(data);
+  renderTable(data);
+}
+
+/* ── KPIs ─────────────────────────────────────────────────────── */
+function renderKPIs(data){
+  const breaches=data.filter(r=>r.breached);
+  const v2b=data.filter(r=>r.source==='v2'&&r.breached);
+  const slab=data.filter(r=>r.source==='sla'&&r.breached);
+  const missing=data.filter(r=>!r.resolved);
+  const rate=data.length?((breaches.length/data.length)*100).toFixed(1):'0';
+  document.getElementById('kpiBreaches').textContent=breaches.length.toLocaleString();
+  document.getElementById('kpiV2').textContent=v2b.length.toLocaleString();
+  document.getElementById('kpiSla').textContent=slab.length.toLocaleString();
+  document.getElementById('kpiTotal').textContent=data.length.toLocaleString();
+  document.getElementById('kpiRate').textContent=rate+'%';
+  document.getElementById('kpiMissing').textContent=missing.length.toLocaleString();
+}
+
+/* ── Alerts ───────────────────────────────────────────────────── */
+function renderAlerts(data){
+  const container=document.getElementById('alertsContainer');
+  const alerts=[];
+  const breaches=data.filter(r=>r.breached);
+  const total=data.length;
+  const rate=total?(breaches.length/total*100):0;
+  if(rate>30) alerts.push({level:'critical',icon:'🔴',title:`High breach rate: ${rate.toFixed(1)}%`,desc:`${breaches.length} of ${total} records breached SLA.`});
+  else if(rate>15) alerts.push({level:'warning',icon:'🟠',title:`Elevated breach rate: ${rate.toFixed(1)}%`,desc:`${breaches.length} records breached SLA.`});
+  else alerts.push({level:'stable',icon:'🟢',title:`Breach rate within acceptable range: ${rate.toFixed(1)}%`,desc:`${breaches.length} of ${total} records breached.`});
+  const missing=data.filter(r=>!r.resolved);
+  if(missing.length) alerts.push({level:'warning',icon:'⚠️',title:`${missing.length} records missing resolution date`,desc:'These records have no KSL/resolved timestamp and may still be open.'});
+  // Top breaching queue
+  const qCounts={};
+  breaches.forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
+  const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1])[0];
+  if(topQ) alerts.push({level:'warning',icon:'📋',title:`Top breaching queue: ${topQ[0]}`,desc:`${topQ[1]} breach${topQ[1]>1?'es':''} recorded.`});
+  if(!alerts.length){
+    container.innerHTML='<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><h3>No alerts</h3><p>All metrics within normal range.</p></div>';
+    return;
+  }
+  container.innerHTML=alerts.map(a=>`
+    <div class="alert-card alert-${a.level}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ── Charts ───────────────────────────────────────────────────── */
+function renderCharts(data){
+  Object.values(charts).forEach(c=>c.destroy());
+  charts={};
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const textColor=isDark?'#cdccca':'#28251d';
+  const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
+  const defaults={responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:textColor,font:{size:11}}},tooltip:{backgroundColor:isDark?'#1c1b19':'#fff',titleColor:textColor,bodyColor:textColor,borderColor:isDark?'#393836':'#d4d1ca',borderWidth:1}},scales:{x:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}}}};
+  // By month
+  const byMonth={};
+  data.forEach(r=>{if(!byMonth[r.month])byMonth[r.month]={total:0,breach:0};byMonth[r.month].total++;if(r.breached)byMonth[r.month].breach++;});
+  const months=Object.keys(byMonth).sort();
+  charts.month=new Chart(document.getElementById('chartMonth'),{type:'bar',data:{labels:months,datasets:[{label:'Breaches',data:months.map(m=>byMonth[m].breach),backgroundColor:'rgba(161,44,123,0.7)',borderRadius:3},{label:'Within SLA',data:months.map(m=>byMonth[m].total-byMonth[m].breach),backgroundColor:'rgba(67,122,34,0.6)',borderRadius:3}]},options:{...defaults,scales:{...defaults.scales,x:{...defaults.scales.x,stacked:true},y:{...defaults.scales.y,stacked:true}}}});
+  // Source
+  const v2b=data.filter(r=>r.source==='v2'&&r.breached).length;
+  const slab=data.filter(r=>r.source==='sla'&&r.breached).length;
+  charts.source=new Chart(document.getElementById('chartSource'),{type:'doughnut',data:{labels:['V2 Breaches','3093 Breaches'],datasets:[{data:[v2b,slab],backgroundColor:['rgba(161,44,123,0.8)','rgba(0,100,148,0.8)'],borderWidth:0}]},options:{...defaults,scales:{}}});
+  // Top queues
+  const qCounts={};
+  data.filter(r=>r.breached).forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
+  const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  charts.queue=new Chart(document.getElementById('chartQueue'),{type:'bar',data:{labels:topQ.map(q=>q[0]),datasets:[{label:'Breaches',data:topQ.map(q=>q[1]),backgroundColor:'rgba(218,113,1,0.75)',borderRadius:3}]},options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,legend:{display:false}}}});
+  // Breach rate
+  charts.rate=new Chart(document.getElementById('chartRate'),{type:'line',data:{labels:months,datasets:[{label:'Breach %',data:months.map(m=>byMonth[m].total?+(byMonth[m].breach/byMonth[m].total*100).toFixed(1):0),borderColor:'rgba(1,105,111,0.9)',backgroundColor:'rgba(1,105,111,0.12)',fill:true,tension:0.35,pointRadius:3}]},options:defaults});
+}
+
+/* ── Heatmap ──────────────────────────────────────────────────── */
+function renderHeatmap(data){
+  const months=[...new Set(data.map(r=>r.month))].sort();
+  const queues=[...new Set(data.map(r=>r.queue))].filter(Boolean).sort();
+  const grid={};
+  data.filter(r=>r.breached).forEach(r=>{
+    if(!grid[r.queue]) grid[r.queue]={};
+    grid[r.queue][r.month]=(grid[r.queue][r.month]||0)+1;
+  });
+  const maxVal=Math.max(1,...Object.values(grid).flatMap(v=>Object.values(v)));
+  const head=document.getElementById('heatmapHead');
+  const body=document.getElementById('heatmapBody');
+  head.innerHTML='<th>Queue</th>'+months.map(m=>`<th>${m}</th>`).join('');
+  body.innerHTML=queues.map(q=>`
+    <tr>
+      <td>${q}</td>
+      ${months.map(m=>{
+        const v=(grid[q]||{})[m]||0;
+        const heat=v/maxVal;
+        const bg=v?`rgba(161,44,123,${0.1+heat*0.8})`:'transparent';
+        const color=heat>0.5?'#fff':'inherit';
+        return `<td class="heat-cell" style="background:${bg};color:${color}">${v||''}</td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
+/* ── Missing KSL ──────────────────────────────────────────────── */
+function renderMissing(data){
+  const missing=data.filter(r=>!r.resolved);
+  const body=document.getElementById('missingBody');
+  if(!missing.length){
+    body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No records missing resolution date.</td></tr>';
+    return;
+  }
+  const now=new Date();
+  body.innerHTML=missing.map(r=>{
+    const age=r.created?Math.floor((now-r.created)/86400000):null;
+    const ageStr=age!=null?`${age}d`:'—';
+    return `<tr>
+      <td>${r.ticket||'—'}</td>
+      <td><span class="pill pill-${r.source==='v2'?'warn':'blue'}">${r.source}</span></td>
+      <td>${r.queue||'—'}</td>
+      <td>${r.created?r.created.toLocaleDateString():'—'}</td>
+      <td style="font-weight:${age>30?'700':'400'};color:${age>30?'var(--error)':'inherit'}">${ageStr}</td>
+      <td><span class="pill pill-breach">Open</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Full table ───────────────────────────────────────────────── */
+function renderTable(data){
+  document.getElementById('rowCount').textContent=`${data.length} rows`;
+  const body=document.getElementById('mainBody');
+  if(!data.length){
+    body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No records match current filters.</td></tr>';
+    return;
+  }
+  body.innerHTML=data.slice(0,500).map(r=>`<tr>
+    <td>${r.ticket||'—'}</td>
+    <td><span class="pill pill-${r.source==='v2'?'warn':'blue'}">${r.source}</span></td>
+    <td>${r.queue||'—'}</td>
+    <td>${r.month||'—'}</td>
+    <td>${r.created?r.created.toLocaleDateString():'—'}</td>
+    <td>${r.resolved?r.resolved.toLocaleDateString():'—'}</td>
+    <td>${r.slaTarget}h</td>
+    <td>${r.elapsed!=null?r.elapsed.toFixed(1)+'h':'—'}</td>
+    <td><span class="pill ${r.breached?'pill-breach':'pill-ok'}">${r.breached?'Breach':'OK'}</span></td>
+  </tr>`).join('');
+  if(data.length>500){
+    body.innerHTML+='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:0.75rem;font-style:italic">Showing first 500 rows. Export CSV for full dataset.</td></tr>';
+  }
+}
+
+/* ── Export CSV ───────────────────────────────────────────────── */
+document.getElementById('exportCsv').addEventListener('click',()=>{
+  const data=getFiltered();
+  const rows=[['Ticket','Source','Queue','Month','Created','Resolved','SLA Target (h)','Elapsed (h)','Breached']];
+  data.forEach(r=>rows.push([
+    r.ticket,r.source,r.queue,r.month,
+    r.created?r.created.toISOString():'',
+    r.resolved?r.resolved.toISOString():'',
+    r.slaTarget,
+    r.elapsed!=null?r.elapsed.toFixed(2):'',
+    r.breached?'Yes':'No'
+  ]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='breaches-combined-export.csv';
+  a.click();
+});
+
+/* ── Clear ────────────────────────────────────────────────────── */
+document.getElementById('clearAll').addEventListener('click',()=>{
+  breachesData=[];slaData=[];mergedData=[];
+  ['breachesFiles','slaFiles'].forEach(id=>document.getElementById(id).value='');
+  setStatus('breachesStatus','idle','No file loaded');
+  setStatus('slaStatus','idle','No file loaded');
+  document.getElementById('runMerge').disabled=true;
+  document.getElementById('exportCsv').disabled=true;
+  document.getElementById('filtersBar').style.display='none';
+  document.getElementById('kpiBar').style.display='none';
+  document.getElementById('tabNav').style.display='none';
+  document.getElementById('runStatus').textContent='';
+  Object.values(charts).forEach(c=>c.destroy());
+  charts={};
+});
+
+/* ── Tab nav ──────────────────────────────────────────────────── */
+document.getElementById('tabNav').addEventListener('click',e=>{
+  const btn=e.target.closest('.tab-btn');
+  if(!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+});
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+function setStatus(id,type,msg){
+  const el=document.getElementById(id);
+  el.className='status-tag';
+  if(type==='ok') el.classList.add('status-ok');
+  else if(type==='error') el.classList.add('status-error');
+  else el.classList.add('status-idle');
+  el.textContent=msg;
+}
+
+function showBar(msg){
+  const b=document.getElementById('statusBar');
+  b.textContent=msg; b.style.display='block';
+  setTimeout(()=>b.style.display='none',4000);
+}
+</script>
+</body>
+</html>
