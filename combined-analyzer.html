@@ -554,6 +554,33 @@ document.getElementById('runMerge').addEventListener('click', () => {
   showTab('overview');
     buildAlerts();
 });
+// ─── INTEGRITY GUARD ────────────────────────────────────────────────────────────────
+(function _integrityGuard() {
+    const errors = [];
+      // 1. Check for duplicate element IDs (catches copy-paste duplication bugs)
+        const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart','heatmapTable','langChart','missingKslCards','missingTrendChart','queueChart','topicChart','runMerge','v2Files','csvFiles','v2Status','csvStatus','recordCount','monthFilter','langMonthFilter'];
+          criticalIds.forEach(id => {
+                const matches = document.querySelectorAll('[id="' + id + '"]');
+                    if (matches.length > 1) errors.push('DUPLICATE ID #' + id + ' appears ' + matches.length + 'x — likely a copy-paste bug.');
+                        if (matches.length === 0) errors.push('MISSING ELEMENT #' + id + ' — required DOM node not found.');
+                          });
+                            // 2. Check required functions exist in scope (catches JS-outside-script bugs)
+                              const requiredFns = ['buildAlerts','buildActionPlan','downloadCSV','downloadChartPNG','printActionPlan','showTab','buildKpiGrid','buildTrendChart'];
+                                requiredFns.forEach(fn => {
+                                      if (typeof window[fn] !== 'function') errors.push('MISSING FUNCTION ' + fn + '() — JS may be outside <script> tag or was never defined.');
+                                          });
+                                            // 3. Check tab buttons match tab panels (count parity)
+                                              const btnCount = document.querySelectorAll('.tab-btn').length;
+                                                const panelCount = document.querySelectorAll('.tab-panel').length;
+                                                  if (btnCount !== panelCount) errors.push('TAB MISMATCH: ' + btnCount + ' buttons but ' + panelCount + ' panels — a tab section may be duplicated or missing.');
+                                                    // 4. Surface errors visibly in the UI and console
+                                                      if (errors.length === 0) { console.log('%c✅ Integrity check passed — all DOM elements and functions present, no duplicates.', 'color:green;font-weight:bold'); return; }
+                                                        // Errors found — log to console and show a visible banner in the page
+                                                          console.error('❌ Breaches Overview — Integrity Check FAILED:\n' + errors.join('\n'));
+                                                            const banner = document.createElement('div');
+                                                              banner.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:9999;background:#a13544;color:#fff;font-family:monospace;font-size:13px;padding:12px 16px;line-height:1.6;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.4)');
+                                                                  banner.textContent = '❌ INTEGRITY CHECK FAILED — ' + errors.length + ' issue(s) detected:\n' + errors.map(function(e,i){ return (i+1) + '. ' + e; }).join('\n');
+  })();
 
 // ─── THEME TOGGLE ────────────────────────────────────────────────────────────
 (function(){
