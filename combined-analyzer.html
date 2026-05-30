@@ -1,654 +1,550 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Combined Analyzer — Breaches Overview</title>
-  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,800&display=swap" rel="stylesheet">
-  <link href="styles.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-<div class="app">
 
-  <nav class="app-nav">
-    <a href="index.html">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Overview Hub
-    </a>
-    <a href="combined-analyzer.html" class="active">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      Combined Analyzer
-    </a>
-    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/" target="_blank" rel="noopener">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      Breaches Tracker
-    </a>
-    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/reporter.html" target="_blank" rel="noopener">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
-      Reporter
-    </a>
-    <a href="https://phoenixwillriseagain-ops.github.io/breaches-tracker/converter.html" target="_blank" rel="noopener">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-      Converter
-    </a>
+<header class="app-header">
+  <div class="header-left">
+    <a href="./index.html" class="back-link">← Overview</a>
+    <div>
+      <p class="eyebrow">Breaches Overview</p>
+      <h1>Combined Analyzer</h1>
+    </div>
+  </div>
+  <button class="btn btn-secondary" data-theme-toggle aria-label="Toggle theme">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
+</header>
+
+<main class="app-shell">
+
+  <!-- UPLOAD SECTION -->
+  <section class="upload-grid" id="uploadSection">
+    <article class="panel">
+      <h2>V2 Excel files</h2>
+      <p class="muted">March, April &amp; May V2 breach files (KSL-4, KM-1, KSL-5a, KM-2)</p>
+      <label class="drop-zone" id="v2DropZone">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Drop .xlsx files or click to browse</span>
+        <input id="v2Files" type="file" accept=".xlsx,.xls" multiple />
+      </label>
+      <div id="v2Status" class="status-tag status-idle">No files loaded</div>
+    </article>
+    <article class="panel">
+      <h2>3093 CSV files</h2>
+      <p class="muted">Monthly 3093 SLA detail exports (KSL-2, KSL-3, KSL-5b, KSL-6)</p>
+      <label class="drop-zone" id="csvDropZone">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Drop .csv files or click to browse</span>
+        <input id="csvFiles" type="file" accept=".csv" multiple />
+      </label>
+      <div id="csvStatus" class="status-tag status-idle">No files loaded</div>
+    </article>
+  </section>
+
+  <div class="run-row">
+    <button id="runMerge" class="btn btn-primary" disabled>Load files to run analysis</button>
+    <span id="recordCount" class="muted"></span>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tab-bar" id="tabBar" hidden>
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="language">Language Analysis</button>
+    <button class="tab-btn" data-tab="missing">Missing KSLs</button>
+    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>
   </nav>
 
-  <header class="header">
-    <div class="logo">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-      </svg>
-      Combined Analyzer
+  <!-- TAB: OVERVIEW -->
+  <section class="tab-panel" id="tab-overview" hidden>
+    <div class="month-filter">
+      <label class="muted">Filter month:</label>
+      <div class="pill-group" id="monthFilter">
+        <button class="pill active" data-month="all">All</button>
+        <button class="pill" data-month="March">March</button>
+        <button class="pill" data-month="April">April</button>
+        <button class="pill" data-month="May">May</button>
+      </div>
     </div>
-    <div class="header-right">
-      <button class="theme-btn" data-theme-toggle aria-label="Toggle theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      </button>
+    <div id="kpiGrid" class="kpi-grid"></div>
+    <div class="chart-grid">
+      <div class="panel chart-panel">
+        <h2>Monthly breach trend by SLA</h2>
+        <p class="muted chart-note">Non-excluded breaches per SLA code across March, April and May.</p>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="panel chart-panel">
+        <h2>Breach distribution by source</h2>
+        <canvas id="sourceChart"></canvas>
+      </div>
     </div>
-  </header>
+  </section>
 
-  <main class="main">
-
-    <!-- Upload Section -->
-    <section class="upload-section">
-      <div class="upload-grid">
-
-        <div class="upload-card">
-          <h3>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-            Breaches file
-          </h3>
-          <div class="drop-zone" id="dz-breaches">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="dz-label">Drop .xlsx Breaches files here</div>
-            <div class="dz-hint">Supports .xlsx / .xls</div>
-            <input id="breachesFiles" type="file" accept=".xlsx,.xls" multiple />
-          </div>
-          <div id="breachesStatus" class="status-tag status-idle">No file loaded</div>
+  <!-- TAB: LANGUAGE -->
+  <section class="tab-panel" id="tab-language" hidden>
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Language × SLA breach rate heatmap</h2>
+          <p class="muted">Breach rate % per language per SLA code (3093 missing KSLs only). Red = high rate.</p>
         </div>
-
-        <div class="upload-card">
-          <h3>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-            SLA file
-          </h3>
-          <div class="drop-zone" id="dz-sla">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="dz-label">Drop .csv or .xlsx SLA files here</div>
-            <div class="dz-hint">Supports .csv / .xlsx / .xls</div>
-            <input id="slaFiles" type="file" accept=".csv,.xlsx,.xls" multiple />
-          </div>
-          <div id="slaStatus" class="status-tag status-idle">No file loaded</div>
-        </div>
-
-      </div>
-      <div class="run-row">
-        <button id="runMerge" class="btn btn-primary" disabled>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          Run Analysis
-        </button>
-        <button id="exportCsv" class="btn-outline" disabled>Export CSV</button>
-        <button id="clearAll" class="btn-outline">Clear</button>
-        <span id="runStatus" style="font-size:0.78rem;color:var(--muted)"></span>
-      </div>
-    </section>
-
-    <!-- Filters -->
-    <div class="filters" id="filtersBar" style="display:none">
-      <div class="filter-group">
-        <label>Month</label>
-        <select id="filterMonth"><option value="">All months</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Queue / Language</label>
-        <select id="filterQueue"><option value="">All queues</option></select>
-      </div>
-      <div class="filter-group">
-        <label>Source</label>
-        <select id="filterSource">
-          <option value="">All sources</option>
-          <option value="breaches">Breaches file</option>
-          <option value="sla">SLA file</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Breach only</label>
-        <select id="filterBreach">
-          <option value="">All</option>
-          <option value="yes">Breached</option>
-          <option value="no">Within SLA</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- KPIs -->
-    <div class="kpis" id="kpiBar" style="display:none">
-      <div class="kpi kpi-breach">
-        <div class="kpi-label">Total Breaches</div>
-        <div class="kpi-value" id="kpiBreaches">—</div>
-        <div class="kpi-sub">across both sources</div>
-      </div>
-      <div class="kpi kpi-warn">
-        <div class="kpi-label">Breaches file</div>
-        <div class="kpi-value" id="kpiV2">—</div>
-        <div class="kpi-sub">from Excel</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">SLA file</div>
-        <div class="kpi-value" id="kpiSla">—</div>
-        <div class="kpi-sub">from CSV/XLSX</div>
-      </div>
-      <div class="kpi kpi-ok">
-        <div class="kpi-label">Total Rows</div>
-        <div class="kpi-value" id="kpiTotal">—</div>
-        <div class="kpi-sub">merged dataset</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Breach Rate</div>
-        <div class="kpi-value" id="kpiRate">—</div>
-        <div class="kpi-sub">% of total rows</div>
-      </div>
-      <div class="kpi kpi-warn">
-        <div class="kpi-label">Missing KSL</div>
-        <div class="kpi-value" id="kpiMissing">—</div>
-        <div class="kpi-sub">no resolution date</div>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs-bar" id="tabNav" style="display:none">
-      <button class="tab-btn active" data-tab="alerts">⚠ Alerts</button>
-      <button class="tab-btn" data-tab="charts">Charts</button>
-      <button class="tab-btn" data-tab="heatmap">Language Heatmap</button>
-      <button class="tab-btn" data-tab="missing">Missing KSL</button>
-      <button class="tab-btn" data-tab="table">Full Table</button>
-    </div>
-
-    <!-- Tab: Alerts -->
-    <div class="tab-panel active" id="tab-alerts">
-      <div id="alertsContainer"></div>
-    </div>
-
-    <!-- Tab: Charts -->
-    <div class="tab-panel" id="tab-charts">
-      <div class="charts-grid">
-        <div class="chart-card">
-          <h4>Breaches by Month</h4>
-          <canvas id="chartMonth"></canvas>
-        </div>
-        <div class="chart-card">
-          <h4>Source Breakdown</h4>
-          <canvas id="chartSource"></canvas>
-        </div>
-        <div class="chart-card">
-          <h4>Top 10 Queues by Breaches</h4>
-          <canvas id="chartQueue"></canvas>
-        </div>
-        <div class="chart-card">
-          <h4>Breach Rate by Month (%)</h4>
-          <canvas id="chartRate"></canvas>
+        <div class="pill-group" id="langMonthFilter">
+          <button class="pill active" data-lmonth="all">All months</button>
+          <button class="pill" data-lmonth="March">March</button>
+          <button class="pill" data-lmonth="April">April</button>
+          <button class="pill" data-lmonth="May">May</button>
         </div>
       </div>
-    </div>
-
-    <!-- Tab: Language Heatmap -->
-    <div class="tab-panel" id="tab-heatmap">
-      <div class="section-header">
-        <div class="section-title">Language Breach Heatmap</div>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table" id="heatmapTable">
-          <thead><tr id="heatmapHead"></tr></thead>
-          <tbody id="heatmapBody"></tbody>
-        </table>
+      <div class="table-scroll">
+        <table id="heatmapTable" class="heatmap-table"></table>
       </div>
     </div>
+    <div class="panel chart-panel" style="margin-top:20px">
+      <h2>Breach count by language (all SLAs)</h2>
+      <canvas id="langChart"></canvas>
+    </div>
+  </section>
 
-    <!-- Tab: Missing KSL -->
-    <div class="tab-panel" id="tab-missing">
-      <div class="section-header">
-        <div class="section-title">Records Missing KSL (No Resolution Date)</div>
+  <!-- TAB: MISSING KSLs -->
+  <section class="tab-panel" id="tab-missing" hidden>
+    <div class="missing-ksl-grid" id="missingKslCards"></div>
+    <div class="panel chart-panel" style="margin-top:20px">
+      <h2>Missing KSL monthly trend</h2>
+      <p class="muted chart-note">KSL-2a, KSL-2b, KSL-2c, KSL-3a, KSL-5b, KSL-6 breach counts per month.</p>
+      <canvas id="missingTrendChart"></canvas>
+    </div>
+  </section>
+
+  <!-- TAB: QUEUE -->
+  <section class="tab-panel" id="tab-queue" hidden>
+    <div class="chart-grid">
+      <div class="panel chart-panel">
+        <h2>Top queues by breach count</h2>
+        <p class="muted chart-note">Combined across all SLA codes and months.</p>
+        <canvas id="queueChart"></canvas>
       </div>
-      <div class="table-wrap">
-        <table class="data-table" id="missingTable">
-          <thead>
-            <tr>
-              <th>Ticket</th><th>Source</th><th>Queue</th><th>Created</th><th>Age (days)</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="missingBody"></tbody>
-        </table>
+      <div class="panel chart-panel">
+        <h2>Top applications driving breaches</h2>
+        <p class="muted chart-note">#SW#AOS and #SW#ISTA are systemic drivers across all missing KSLs.</p>
+        <canvas id="topicChart"></canvas>
       </div>
     </div>
+  </section>
 
-    <!-- Tab: Full Table -->
-    <div class="tab-panel" id="tab-table">
-      <div class="section-header">
-        <div class="section-title">Merged Dataset</div>
-        <span id="rowCount" style="font-size:0.78rem;color:var(--muted)"></span>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table" id="mainTable">
-          <thead>
-            <tr>
-              <th>Ticket</th><th>Source</th><th>Queue</th><th>Month</th>
-              <th>Created</th><th>Resolved</th><th>SLA Target</th>
-              <th>Elapsed</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="mainBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-  </main>
-
-  <div class="status-bar" id="statusBar" style="display:none"></div>
-
-</div>
+</main>
 
 <script>
-/* ── Theme toggle ─────────────────────────────────────────────── */
-(function(){
-  const t=document.querySelector('[data-theme-toggle]'),r=document.documentElement;
-  let d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-  r.setAttribute('data-theme',d);
-  if(t)t.addEventListener('click',()=>{
-    d=d==='dark'?'light':'dark';
-    r.setAttribute('data-theme',d);
-    t.innerHTML=d==='dark'
-      ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
-      :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-  });
-})();
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const MONTHS = ['March', 'April', 'May'];
+const MISSING_KSLS = ['KSL-2a', 'KSL-2b', 'KSL-2c', 'KSL-3a', 'KSL-5b', 'KSL-6'];
 
-/* ── Drag-drop setup ──────────────────────────────────────────── */
-['dz-breaches','dz-sla'].forEach(id=>{
-  const el=document.getElementById(id);
-  const inputId=id==='dz-breaches'?'breachesFiles':'slaFiles';
+function detectMonthFromFilename(name = '') {
+  const l = name.toLowerCase();
+  if (l.includes('march')) return 'March';
+  if (l.includes('april')) return 'April';
+  if (l.includes('may') || l.includes('-14') || l.includes('_14')) return 'May';
+  if (l.includes('-12') || l.includes('_12')) return 'May';
+  if (l.includes('-13') || l.includes('_13')) return 'April';
+  return null;
+}
 
-  el.addEventListener('dragover',e=>{
-    e.preventDefault();
-    el.classList.add('drag-over');
-  });
+function monthFromDate(value) {
+  if (!value) return null;
+  const str = String(value).replace(/\//g, '-');
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return names[d.getMonth()] || null;
+}
 
-  el.addEventListener('dragleave',e=>{
-    if(!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
-  });
+function normalizeQueue(q = '') { return String(q).replace(/^FT_use-/i, ''); }
 
-  el.addEventListener('drop',e=>{
-    e.preventDefault();
-    el.classList.remove('drag-over');
-    const input=document.getElementById(inputId);
-    const dt=new DataTransfer();
-    Array.from(e.dataTransfer.files).forEach(f=>dt.items.add(f));
-    input.files=dt.files;
-    input.dispatchEvent(new Event('change',{bubbles:true}));
-  });
+function toNum(v) {
+  if (v === null || v === undefined || v === '') return NaN;
+  return Number(String(v).replace(',', '.'));
+}
 
-  el.addEventListener('click',()=>document.getElementById(inputId).click());
-});
-
-/* ── State ────────────────────────────────────────────────────── */
-let breachesData=[], slaData=[], mergedData=[], charts={};
-
-/* ── File input handlers ──────────────────────────────────────── */
-document.getElementById('breachesFiles').addEventListener('change',function(){
-  const f=this.files[0]; if(!f) return;
-  setStatus('breachesStatus','loading','Reading…');
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      breachesData=parseBreachesWorkbook(wb);
-      setStatus('breachesStatus','ok',`✓ ${breachesData.length} rows — ${f.name}`);
-      checkReady();
-    }catch(err){
-      setStatus('breachesStatus','error','Error: '+err.message);
-    }
-  };
-  reader.readAsArrayBuffer(f);
-});
-
-document.getElementById('slaFiles').addEventListener('change',function(){
-  const f=this.files[0]; if(!f) return;
-  setStatus('slaStatus','loading','Reading…');
-  const ext=f.name.split('.').pop().toLowerCase();
-  const reader=new FileReader();
-  if(ext==='csv'){
-    reader.onload=e=>{
-      try{
-        const results=Papa.parse(e.target.result,{header:true,skipEmptyLines:true,dynamicTyping:false});
-        slaData=parseSlaRows(results.data);
-        setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
-        checkReady();
-      }catch(err){
-        setStatus('slaStatus','error','Error: '+err.message);
-      }
-    };
-    reader.readAsText(f);
-  } else {
-    reader.onload=e=>{
-      try{
-        const wb=XLSX.read(e.target.result,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
-        slaData=parseSlaRows(data);
-        setStatus('slaStatus','ok',`✓ ${slaData.length} rows — ${f.name}`);
-        checkReady();
-      }catch(err){
-        setStatus('slaStatus','error','Error: '+err.message);
-      }
-    };
-    reader.readAsArrayBuffer(f);
-  }
-});
-
-/* ── Parsers ──────────────────────────────────────────────────── */
-function parseBreachesWorkbook(wb){
-  const rows=[];
-  wb.SheetNames.forEach(name=>{
-    const ws=wb.Sheets[name];
-    const data=XLSX.utils.sheet_to_json(ws,{defval:''});
-    data.forEach(r=>{
-      const created=parseDate(r['Created']||r['created']||r['Opened']||r['opened']||'');
-      const resolved=parseDate(r['Resolved']||r['resolved']||r['Closed']||r['closed']||'');
-      const queue=String(r['Queue']||r['queue']||r['Assignment group']||r['assignment_group']||name||'').trim();
-      const ticket=String(r['Number']||r['number']||r['Ticket']||r['ticket']||'').trim();
-      const slaTarget=parseFloat(r['SLA Target']||r['sla_target']||r['Target']||8)||8;
-      const elapsed=resolved&&created?(resolved-created)/3600000:null;
-      const breached=elapsed!=null?elapsed>slaTarget:true;
-      rows.push({ticket,source:'breaches',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r});
+// ─── V2 PARSER ────────────────────────────────────────────────────────────────
+function parseV2Workbook(fileName, workbook) {
+  const records = [];
+  const fallbackMonth = detectMonthFromFilename(fileName);
+  workbook.SheetNames.filter(n => n !== 'Instructions').forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const hIdx = rows.findIndex(r => r.some(c => String(c||'').trim() === 'Incident Ticket'));
+    if (hIdx === -1) return;
+    const headers = rows[hIdx].map(c => String(c).trim());
+    rows.slice(hIdx + 1).filter(r => r.some(Boolean)).forEach(row => {
+      const item = Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']));
+      if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
+      const excluded = Number(item.Excluded || 0) === 1;
+      records.push({
+        source: 'V2', month: fallbackMonth, sla_code: sheetName,
+        incident_ticket: item['Incident Ticket'] || '',
+        queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
+        iso_language: item.ISO_Language || '', topic: item.TOPIC || '',
+        excluded, is_breach: !excluded
+      });
     });
   });
-  return rows;
+  return records;
 }
 
-function parseSlaRows(data){
-  return data.map(r=>{
-    const created=parseDate(r['Opened']||r['Created']||r['created']||r['opened']||'');
-    const resolved=parseDate(r['Resolved']||r['resolved']||r['Closed']||r['closed']||'');
-    const queue=String(r['Queue']||r['queue']||r['Assignment group']||r['assignment_group']||r['Language']||r['language']||'').trim();
-    const ticket=String(r['Number']||r['number']||r['Ticket']||r['ticket']||'').trim();
-    const slaTarget=parseFloat(r['SLA Target']||r['sla_target']||r['Target']||8)||8;
-    const elapsed=resolved&&created?(resolved-created)/3600000:null;
-    const breached=elapsed!=null?elapsed>slaTarget:true;
-    return {ticket,source:'sla',queue,month:monthStr(created),created,resolved,slaTarget,elapsed,breached,_raw:r};
-  });
+// ─── CSV PARSER ───────────────────────────────────────────────────────────────
+const COL_MAP = {
+  'SLA Kennzahl': 'sla_code', 'SLA Kennzahl Name': 'sla_name',
+  'SLA Kennzahl Vergleichsart': 'compare_dir',
+  'Anzahl SLAs Kennzahl Z\u00e4hler vor SR': 'numerator',
+  'Anzahl SLAs Kennzahl Nenner vor SR': 'denominator',
+  'Element geschlossen am': 'date_closed', 'Element Status': 'status',
+  'Incident Element Supportsprache': 'iso_language',
+  'Incident Element Supportsprache Name EN': 'language_name',
+  'Incident Ticket': 'incident_ticket', 'Ticket Gruppe': 'queue',
+  'KM Anwendung': 'topic'
+};
+
+function parse3093Csv(fileName, text) {
+  const result = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
+  return result.data.map(raw => {
+    const row = {};
+    Object.entries(COL_MAP).forEach(([src, tgt]) => { row[tgt] = raw[src] ?? ''; });
+    const num = toNum(row.numerator), den = toNum(row.denominator), dir = toNum(row.compare_dir);
+    let isBreach = false;
+    if (dir === 1) isBreach = num < den;
+    if (dir === -1) isBreach = num > 0;
+    const month = monthFromDate(row.date_closed);
+    if (!MONTHS.includes(month)) return null;
+    return {
+      source: '3093', file_name: fileName, month,
+      sla_code: row.sla_code, sla_name: row.sla_name,
+      incident_ticket: row.incident_ticket, status: row.status,
+      queue: row.queue, queue_normalized: normalizeQueue(row.queue),
+      iso_language: row.iso_language, language_name: row.language_name,
+      topic: row.topic, excluded: false, is_breach: Boolean(isBreach)
+    };
+  }).filter(Boolean);
 }
 
-function parseDate(val){
-  if(!val) return null;
-  const d=new Date(val);
-  return isNaN(d.getTime())?null:d;
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let allRecords = [], v2Records = [], csvRecords = [];
+let activeMonth = 'all', activeLangMonth = 'all';
+let trendChartInst, sourceChartInst, langChartInst, missingTrendInst, queueChartInst, topicChartInst;
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function setStatus(el, text, type) {
+  el.textContent = text;
+  el.className = `status-tag status-${type}`;
 }
 
-function monthStr(d){
-  if(!d) return '';
-  return d.toLocaleString('default',{month:'short',year:'numeric'});
-}
-
-/* ── Ready check ──────────────────────────────────────────────── */
-function checkReady(){
-  document.getElementById('runMerge').disabled=!(breachesData.length||slaData.length);
-}
-
-/* ── Run analysis ─────────────────────────────────────────────── */
-document.getElementById('runMerge').addEventListener('click',()=>{
-  mergedData=[...breachesData,...slaData];
-  document.getElementById('exportCsv').disabled=false;
-  document.getElementById('filtersBar').style.display='flex';
-  document.getElementById('kpiBar').style.display='grid';
-  document.getElementById('tabNav').style.display='flex';
-  populateFilters();
-  renderAll();
-  document.getElementById('runStatus').textContent=`Analysis complete — ${mergedData.length} rows merged`;
-});
-
-/* ── Filters ──────────────────────────────────────────────────── */
-function populateFilters(){
-  const months=[...new Set(mergedData.map(r=>r.month).filter(Boolean))].sort();
-  const queues=[...new Set(mergedData.map(r=>r.queue).filter(Boolean))].sort();
-  const mSel=document.getElementById('filterMonth');
-  const qSel=document.getElementById('filterQueue');
-  mSel.innerHTML='<option value="">All months</option>'+months.map(m=>`<option>${m}</option>`).join('');
-  qSel.innerHTML='<option value="">All queues</option>'+queues.map(q=>`<option>${q}</option>`).join('');
-}
-
-['filterMonth','filterQueue','filterSource','filterBreach'].forEach(id=>{
-  document.getElementById(id).addEventListener('change',renderAll);
-});
-
-function getFiltered(){
-  const m=document.getElementById('filterMonth').value;
-  const q=document.getElementById('filterQueue').value;
-  const s=document.getElementById('filterSource').value;
-  const b=document.getElementById('filterBreach').value;
-  return mergedData.filter(r=>{
-    if(m && r.month!==m) return false;
-    if(q && r.queue!==q) return false;
-    if(s && r.source!==s) return false;
-    if(b==='yes' && !r.breached) return false;
-    if(b==='no' && r.breached) return false;
-    return true;
-  });
-}
-
-/* ── Render all ───────────────────────────────────────────────── */
-function renderAll(){
-  const data=getFiltered();
-  renderKPIs(data);
-  renderAlerts(data);
-  renderCharts(data);
-  renderHeatmap(data);
-  renderMissing(data);
-  renderTable(data);
-}
-
-/* ── KPIs ─────────────────────────────────────────────────────── */
-function renderKPIs(data){
-  const breaches=data.filter(r=>r.breached);
-  const v2b=data.filter(r=>r.source==='breaches'&&r.breached);
-  const slab=data.filter(r=>r.source==='sla'&&r.breached);
-  const missing=data.filter(r=>!r.resolved);
-  const rate=data.length?((breaches.length/data.length)*100).toFixed(1):'0';
-  document.getElementById('kpiBreaches').textContent=breaches.length.toLocaleString();
-  document.getElementById('kpiV2').textContent=v2b.length.toLocaleString();
-  document.getElementById('kpiSla').textContent=slab.length.toLocaleString();
-  document.getElementById('kpiTotal').textContent=data.length.toLocaleString();
-  document.getElementById('kpiRate').textContent=rate+'%';
-  document.getElementById('kpiMissing').textContent=missing.length.toLocaleString();
-}
-
-/* ── Alerts ───────────────────────────────────────────────────── */
-function renderAlerts(data){
-  const container=document.getElementById('alertsContainer');
-  const alerts=[];
-  const breaches=data.filter(r=>r.breached);
-  const total=data.length;
-  const rate=total?(breaches.length/total*100):0;
-  if(rate>30) alerts.push({level:'critical',icon:'🔴',title:`High breach rate: ${rate.toFixed(1)}%`,desc:`${breaches.length} of ${total} records breached SLA.`});
-  else if(rate>15) alerts.push({level:'warning',icon:'🟠',title:`Elevated breach rate: ${rate.toFixed(1)}%`,desc:`${breaches.length} records breached SLA.`});
-  else alerts.push({level:'stable',icon:'🟢',title:`Breach rate within acceptable range: ${rate.toFixed(1)}%`,desc:`${breaches.length} of ${total} records breached.`});
-  const missing=data.filter(r=>!r.resolved);
-  if(missing.length) alerts.push({level:'warning',icon:'⚠️',title:`${missing.length} records missing resolution date`,desc:'These records have no KSL/resolved timestamp and may still be open.'});
-  const qCounts={};
-  breaches.forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
-  const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1])[0];
-  if(topQ) alerts.push({level:'warning',icon:'📋',title:`Top breaching queue: ${topQ[0]}`,desc:`${topQ[1]} breach${topQ[1]>1?'es':''} recorded.`});
-  if(!alerts.length){
-    container.innerHTML='<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><h3>No alerts</h3><p>All metrics within normal range.</p></div>';
-    return;
+function checkReady() {
+  const btn = document.getElementById('runMerge');
+  if (v2Records.length > 0 || csvRecords.length > 0) {
+    btn.disabled = false;
+    btn.textContent = 'Run analysis';
   }
-  container.innerHTML=alerts.map(a=>`
-    <div class="alert-card alert-${a.level}">
-      <div class="alert-icon">${a.icon}</div>
-      <div class="alert-body">
-        <div class="alert-title">${a.title}</div>
-        <div class="alert-desc">${a.desc}</div>
-      </div>
-    </div>`).join('');
 }
 
-/* ── Charts ───────────────────────────────────────────────────── */
-function renderCharts(data){
-  Object.values(charts).forEach(c=>c.destroy());
-  charts={};
-  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  const textColor=isDark?'#cdccca':'#28251d';
-  const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
-  const defaults={responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:textColor,font:{size:11}}},tooltip:{backgroundColor:isDark?'#1c1b19':'#fff',titleColor:textColor,bodyColor:textColor,borderColor:isDark?'#393836':'#d4d1ca',borderWidth:1}},scales:{x:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}}}};
-  const byMonth={};
-  data.forEach(r=>{if(!byMonth[r.month])byMonth[r.month]={total:0,breach:0};byMonth[r.month].total++;if(r.breached)byMonth[r.month].breach++;});
-  const months=Object.keys(byMonth).filter(Boolean).sort();
-  charts.month=new Chart(document.getElementById('chartMonth'),{type:'bar',data:{labels:months,datasets:[{label:'Breaches',data:months.map(m=>byMonth[m].breach),backgroundColor:'rgba(161,44,123,0.7)',borderRadius:3},{label:'Within SLA',data:months.map(m=>byMonth[m].total-byMonth[m].breach),backgroundColor:'rgba(67,122,34,0.6)',borderRadius:3}]},options:{...defaults,scales:{...defaults.scales,x:{...defaults.scales.x,stacked:true},y:{...defaults.scales.y,stacked:true}}}});
-  const v2b=data.filter(r=>r.source==='breaches'&&r.breached).length;
-  const slab=data.filter(r=>r.source==='sla'&&r.breached).length;
-  charts.source=new Chart(document.getElementById('chartSource'),{type:'doughnut',data:{labels:['Breaches file','SLA file'],datasets:[{data:[v2b,slab],backgroundColor:['rgba(161,44,123,0.8)','rgba(0,100,148,0.8)'],borderWidth:0}]},options:{...defaults,scales:{}}});
-  const qCounts={};
-  data.filter(r=>r.breached).forEach(r=>{qCounts[r.queue]=(qCounts[r.queue]||0)+1;});
-  const topQ=Object.entries(qCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  charts.queue=new Chart(document.getElementById('chartQueue'),{type:'bar',data:{labels:topQ.map(q=>q[0]),datasets:[{label:'Breaches',data:topQ.map(q=>q[1]),backgroundColor:'rgba(218,113,1,0.75)',borderRadius:3}]},options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,legend:{display:false}}}});
-  charts.rate=new Chart(document.getElementById('chartRate'),{type:'line',data:{labels:months,datasets:[{label:'Breach %',data:months.map(m=>byMonth[m].total?+(byMonth[m].breach/byMonth[m].total*100).toFixed(1):0),borderColor:'rgba(1,105,111,0.9)',backgroundColor:'rgba(1,105,111,0.12)',fill:true,tension:0.35,pointRadius:3}]},options:defaults});
+function filteredRecords(month = activeMonth) {
+  if (month === 'all') return allRecords;
+  return allRecords.filter(r => r.month === month);
 }
 
-/* ── Heatmap ──────────────────────────────────────────────────── */
-function renderHeatmap(data){
-  const months=[...new Set(data.map(r=>r.month).filter(Boolean))].sort();
-  const queues=[...new Set(data.map(r=>r.queue))].filter(Boolean).sort();
-  const grid={};
-  data.filter(r=>r.breached).forEach(r=>{
-    if(!grid[r.queue]) grid[r.queue]={};
-    grid[r.queue][r.month]=(grid[r.queue][r.month]||0)+1;
-  });
-  const maxVal=Math.max(1,...Object.values(grid).flatMap(v=>Object.values(v)));
-  const head=document.getElementById('heatmapHead');
-  const body=document.getElementById('heatmapBody');
-  head.innerHTML='<th>Queue</th>'+months.map(m=>`<th>${m}</th>`).join('');
-  body.innerHTML=queues.map(q=>`
-    <tr>
-      <td>${q}</td>
-      ${months.map(m=>{
-        const v=(grid[q]||{})[m]||0;
-        const heat=v/maxVal;
-        const bg=v?`rgba(161,44,123,${0.1+heat*0.8})`:'transparent';
-        const color=heat>0.5?'#fff':'inherit';
-        return `<td class="heat-cell" style="background:${bg};color:${color}">${v||''}</td>`;
-      }).join('')}
-    </tr>`).join('');
-}
+// ─── KPI CARDS ────────────────────────────────────────────────────────────────
+const SLA_COLORS = {
+  'KSL-4':'#01696f','KM-1':'#437a22','KSL-5a':'#006494','KM-2':'#7a39bb',
+  'KSL-2a':'#da7101','KSL-2b':'#d19900','KSL-2c':'#bb653b',
+  'KSL-3a':'#a12c7b','KSL-5b':'#a13544','KSL-6':'#6b675f'
+};
 
-/* ── Missing KSL ──────────────────────────────────────────────── */
-function renderMissing(data){
-  const missing=data.filter(r=>!r.resolved);
-  const body=document.getElementById('missingBody');
-  if(!missing.length){
-    body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No records missing resolution date.</td></tr>';
-    return;
-  }
-  const now=new Date();
-  body.innerHTML=missing.map(r=>{
-    const age=r.created?Math.floor((now-r.created)/86400000):null;
-    const ageStr=age!=null?`${age}d`:'—';
-    return `<tr>
-      <td>${r.ticket||'—'}</td>
-      <td><span class="pill pill-${r.source==='breaches'?'warn':'blue'}">${r.source}</span></td>
-      <td>${r.queue||'—'}</td>
-      <td>${r.created?r.created.toLocaleDateString():'—'}</td>
-      <td style="font-weight:${age>30?'700':'400'};color:${age>30?'var(--error)':'inherit'}">${ageStr}</td>
-      <td><span class="pill pill-breach">Open</span></td>
-    </tr>`;
+function buildKpiGrid(records) {
+  const grid = document.getElementById('kpiGrid');
+  const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
+  grid.innerHTML = slaCodes.map(sla => {
+    const rows = records.filter(r => r.sla_code === sla);
+    const breaches = rows.filter(r => r.is_breach).length;
+    const total = rows.length;
+    const rate = total ? ((breaches / total) * 100).toFixed(1) : '0.0';
+    const color = SLA_COLORS[sla] || '#01696f';
+    // MoM arrow for 3093 source
+    let arrow = '';
+    if (MISSING_KSLS.includes(sla)) {
+      const mar = records.filter(r => r.sla_code === sla && r.month === 'March' && r.is_breach).length;
+      const may = records.filter(r => r.sla_code === sla && r.month === 'May' && r.is_breach).length;
+      if (mar > 0) {
+        const chg = ((may - mar) / mar * 100).toFixed(0);
+        const up = may >= mar;
+        arrow = `<span class="trend ${up ? 'trend-up' : 'trend-down'}">${up ? '\u2191' : '\u2193'} ${Math.abs(chg)}%</span>`;
+      }
+    }
+    return `<article class="kpi-card" style="--accent:${color}">
+      <p class="kpi-label">${sla}</p>
+      <p class="kpi-value">${breaches.toLocaleString()}</p>
+      <p class="kpi-sub">of ${total.toLocaleString()} — ${rate}% breach rate ${arrow}</p>
+    </article>`;
   }).join('');
 }
 
-/* ── Full table ───────────────────────────────────────────────── */
-function renderTable(data){
-  document.getElementById('rowCount').textContent=`${data.length} rows`;
-  const body=document.getElementById('mainBody');
-  if(!data.length){
-    body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No records match current filters.</td></tr>';
-    return;
+// ─── TREND CHART ──────────────────────────────────────────────────────────────
+function buildTrendChart() {
+  const slaCodes = [...new Set(allRecords.map(r => r.sla_code))].sort();
+  const datasets = slaCodes.map(sla => ({
+    label: sla,
+    data: MONTHS.map(m => allRecords.filter(r => r.sla_code === sla && r.month === m && r.is_breach).length),
+    borderColor: SLA_COLORS[sla] || '#999',
+    backgroundColor: (SLA_COLORS[sla] || '#999') + '22',
+    tension: 0.35, pointRadius: 5, pointHoverRadius: 7, fill: false, borderWidth: 2
+  }));
+  if (trendChartInst) trendChartInst.destroy();
+  trendChartInst = new Chart(document.getElementById('trendChart'), {
+    type: 'line', data: { labels: MONTHS, datasets },
+    options: { responsive: true, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'Breach count' } } }
+    }
+  });
+}
+
+// ─── SOURCE DOUGHNUT ─────────────────────────────────────────────────────────
+function buildSourceChart() {
+  const groups = {};
+  allRecords.filter(r => r.is_breach).forEach(r => {
+    const g = MISSING_KSLS.includes(r.sla_code) ? `3093 – ${r.sla_code}` : `V2 – ${r.sla_code}`;
+    groups[g] = (groups[g] || 0) + 1;
+  });
+  const sorted = Object.entries(groups).sort((a,b) => b[1]-a[1]);
+  if (sourceChartInst) sourceChartInst.destroy();
+  sourceChartInst = new Chart(document.getElementById('sourceChart'), {
+    type: 'doughnut',
+    data: { labels: sorted.map(s=>s[0]), datasets: [{ data: sorted.map(s=>s[1]),
+      backgroundColor: sorted.map((_,i) => Object.values(SLA_COLORS)[i % 10]) }] },
+    options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } }
+  });
+}
+
+// ─── LANGUAGE HEATMAP ────────────────────────────────────────────────────────
+function buildHeatmap(monthFilter = 'all') {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code) && (monthFilter === 'all' || r.month === monthFilter));
+  const langs = [...new Set(src.map(r => r.iso_language))].filter(Boolean).sort();
+  const slaCols = MISSING_KSLS.filter(s => src.some(r => r.sla_code === s));
+  const table = document.getElementById('heatmapTable');
+  const header = `<thead><tr><th>Language</th>${slaCols.map(s=>`<th>${s}</th>`).join('')}<th>Total breaches</th></tr></thead>`;
+  const rows = langs.map(lang => {
+    const cells = slaCols.map(sla => {
+      const filtered = src.filter(r => r.iso_language === lang && r.sla_code === sla);
+      const total = filtered.length, breaches = filtered.filter(r=>r.is_breach).length;
+      const rate = total ? (breaches/total*100) : 0;
+      const bg = rate === 0 ? '' : `background:rgba(161,44,123,${Math.min(rate/25,1)*0.7})`;
+      const text = rate > 0 ? `${rate.toFixed(1)}%` : '–';
+      return `<td style="${bg};color:${rate>12?'#fff':'inherit'}" title="${breaches}/${total}">${text}</td>`;
+    });
+    const totalB = src.filter(r => r.iso_language === lang && r.is_breach).length;
+    return `<tr><td><strong>${lang}</strong></td>${cells.join('')}<td><strong>${totalB}</strong></td></tr>`;
+  });
+  table.innerHTML = header + `<tbody>${rows.join('')}</tbody>`;
+}
+
+// ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
+function buildLangChart() {
+  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language);
+  const counts = {};
+  breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  if (langChartInst) langChartInst.destroy();
+  langChartInst = new Chart(document.getElementById('langChart'), {
+    type: 'bar',
+    data: { labels: sorted.map(s=>s[0]), datasets: [{ label: 'Breach count',
+      data: sorted.map(s=>s[1]), backgroundColor: '#01696f99', borderColor: '#01696f', borderWidth: 1 }] },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } } }
+  });
+}
+
+// ─── MISSING KSL CARDS ───────────────────────────────────────────────────────
+const KSL_DESC = {
+  'KSL-2a':'Handling Time – Low ≤ 180 min',
+  'KSL-2b':'Handling Time – Low ≤ 300 min',
+  'KSL-2c':'Handling Time – Medium ≤ 150 min',
+  'KSL-3a':'Reaction Time ≤ 30 min',
+  'KSL-5b':'Resolution Quality',
+  'KSL-6':'COMPASS Linking'
+};
+
+function buildMissingKslCards() {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
+  const container = document.getElementById('missingKslCards');
+  container.innerHTML = MISSING_KSLS.map(sla => {
+    const rows = src.filter(r => r.sla_code === sla);
+    const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
+    const rate = total ? (breaches/total*100).toFixed(1) : '0.0';
+    const mar = rows.filter(r=>r.month==='March'&&r.is_breach).length;
+    const apr = rows.filter(r=>r.month==='April'&&r.is_breach).length;
+    const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
+    let chgLabel = '';
+    if (mar > 0) {
+      const chg = ((may-mar)/mar*100).toFixed(0);
+      const up = may >= mar;
+      chgLabel = `<span class="trend ${up?'trend-up':'trend-down'}">${up?'\u2191':'\u2193'} ${Math.abs(chg)}% Mar\u2192May</span>`;
+    }
+    const color = SLA_COLORS[sla] || '#01696f';
+    return `<article class="kpi-card" style="--accent:${color}">
+      <p class="kpi-label">${sla}</p>
+      <p class="kpi-desc muted">${KSL_DESC[sla]||''}</p>
+      <p class="kpi-value">${rate}%<span style="font-size:14px;font-weight:400"> breach rate</span></p>
+      <p class="kpi-sub">${breaches} breaches / ${total} total ${chgLabel}</p>
+      <div class="mini-bars">
+        ${[['Mar',mar],['Apr',apr],['May',may]].map(([l,v])=>`<span class="mini-bar-wrap"><span class="mini-bar" style="height:${Math.min(v*4,56)}px;background:${color}"></span><span class="mini-label">${l}<br>${v}</span></span>`).join('')}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function buildMissingTrendChart() {
+  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
+  const datasets = MISSING_KSLS.map(sla => ({
+    label: sla,
+    data: MONTHS.map(m => src.filter(r=>r.sla_code===sla&&r.month===m&&r.is_breach).length),
+    borderColor: SLA_COLORS[sla]||'#999',
+    backgroundColor: (SLA_COLORS[sla]||'#999')+'22',
+    tension: 0.35, pointRadius: 5, fill: false, borderWidth: 2
+  }));
+  if (missingTrendInst) missingTrendInst.destroy();
+  missingTrendInst = new Chart(document.getElementById('missingTrendChart'), {
+    type: 'line', data: { labels: MONTHS, datasets },
+    options: { responsive: true, interaction: { mode:'index', intersect:false },
+      plugins: { legend: { position:'bottom', labels:{boxWidth:12,padding:16} } },
+      scales: { y: { beginAtZero:true, title:{display:true,text:'Breach count'} } }
+    }
+  });
+}
+
+// ─── QUEUE & TOPIC CHARTS ────────────────────────────────────────────────────
+function buildQueueChart() {
+  const counts = {};
+  allRecords.filter(r=>r.is_breach&&r.queue_normalized).forEach(r=>{
+    counts[r.queue_normalized]=(counts[r.queue_normalized]||0)+1;
+  });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  if (queueChartInst) queueChartInst.destroy();
+  queueChartInst = new Chart(document.getElementById('queueChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+      data:sorted.map(s=>s[1]), backgroundColor:'#006494aa', borderColor:'#006494', borderWidth:1}] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true}} }
+  });
+}
+
+function buildTopicChart() {
+  const counts = {};
+  allRecords.filter(r=>r.is_breach&&r.topic).forEach(r=>{
+    counts[r.topic]=(counts[r.topic]||0)+1;
+  });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if (topicChartInst) topicChartInst.destroy();
+  topicChartInst = new Chart(document.getElementById('topicChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0]), datasets:[{label:'Breaches',
+      data:sorted.map(s=>s[1]), backgroundColor:'#a12c7baa', borderColor:'#a12c7b', borderWidth:1}] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true}} }
+  });
+}
+
+// ─── TAB LOGIC ────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).hidden = false;
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+}
+
+document.getElementById('tabBar').addEventListener('click', e => {
+  if (e.target.dataset.tab) showTab(e.target.dataset.tab);
+});
+
+// ─── MONTH FILTER ─────────────────────────────────────────────────────────────
+document.getElementById('monthFilter').addEventListener('click', e => {
+  if (!e.target.dataset.month) return;
+  activeMonth = e.target.dataset.month;
+  document.querySelectorAll('#monthFilter .pill').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  buildKpiGrid(filteredRecords());
+});
+
+document.getElementById('langMonthFilter').addEventListener('click', e => {
+  if (!e.target.dataset.lmonth) return;
+  activeLangMonth = e.target.dataset.lmonth;
+  document.querySelectorAll('#langMonthFilter .pill').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  buildHeatmap(activeLangMonth);
+});
+
+// ─── FILE INPUTS ──────────────────────────────────────────────────────────────
+document.getElementById('v2Files').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  v2Records = [];
+  for (const file of files) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:'array' });
+    v2Records.push(...parseV2Workbook(file.name, wb));
   }
-  body.innerHTML=data.slice(0,500).map(r=>`<tr>
-    <td>${r.ticket||'—'}</td>
-    <td><span class="pill pill-${r.source==='breaches'?'warn':'blue'}">${r.source}</span></td>
-    <td>${r.queue||'—'}</td>
-    <td>${r.month||'—'}</td>
-    <td>${r.created?r.created.toLocaleDateString():'—'}</td>
-    <td>${r.resolved?r.resolved.toLocaleDateString():'—'}</td>
-    <td>${r.slaTarget}h</td>
-    <td>${r.elapsed!=null?r.elapsed.toFixed(1)+'h':'—'}</td>
-    <td><span class="pill ${r.breached?'pill-breach':'pill-ok'}">${r.breached?'Breach':'OK'}</span></td>
-  </tr>`).join('');
-  if(data.length>500){
-    body.innerHTML+='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:0.75rem;font-style:italic">Showing first 500 rows. Export CSV for full dataset.</td></tr>';
+  setStatus(document.getElementById('v2Status'), `${files.length} file(s) — ${v2Records.length} rows parsed`, 'ok');
+  checkReady();
+});
+
+document.getElementById('csvFiles').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  csvRecords = [];
+  for (const file of files) {
+    const text = await file.text();
+    csvRecords.push(...parse3093Csv(file.name, text));
   }
-}
-
-/* ── Export CSV ───────────────────────────────────────────────── */
-document.getElementById('exportCsv').addEventListener('click',()=>{
-  const data=getFiltered();
-  const rows=[['Ticket','Source','Queue','Month','Created','Resolved','SLA Target (h)','Elapsed (h)','Breached']];
-  data.forEach(r=>rows.push([
-    r.ticket,r.source,r.queue,r.month,
-    r.created?r.created.toISOString():'',
-    r.resolved?r.resolved.toISOString():'',
-    r.slaTarget,
-    r.elapsed!=null?r.elapsed.toFixed(2):'',
-    r.breached?'Yes':'No'
-  ]));
-  const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='breaches-combined-export.csv';
-  a.click();
+  setStatus(document.getElementById('csvStatus'), `${files.length} file(s) — ${csvRecords.length} rows parsed`, 'ok');
+  checkReady();
 });
 
-/* ── Clear ────────────────────────────────────────────────────── */
-document.getElementById('clearAll').addEventListener('click',()=>{
-  breachesData=[];slaData=[];mergedData=[];
-  ['breachesFiles','slaFiles'].forEach(id=>document.getElementById(id).value='');
-  setStatus('breachesStatus','idle','No file loaded');
-  setStatus('slaStatus','idle','No file loaded');
-  document.getElementById('runMerge').disabled=true;
-  document.getElementById('exportCsv').disabled=true;
-  document.getElementById('filtersBar').style.display='none';
-  document.getElementById('kpiBar').style.display='none';
-  document.getElementById('tabNav').style.display='none';
-  document.getElementById('runStatus').textContent='';
-  Object.values(charts).forEach(c=>c.destroy());
-  charts={};
+// ─── RUN ──────────────────────────────────────────────────────────────────────
+document.getElementById('runMerge').addEventListener('click', () => {
+  allRecords = [...v2Records, ...csvRecords];
+  document.getElementById('recordCount').textContent =
+    `${allRecords.length.toLocaleString()} total records — ${allRecords.filter(r=>r.is_breach).length.toLocaleString()} breaches`;
+
+  buildKpiGrid(allRecords);
+  buildTrendChart();
+  buildSourceChart();
+  buildHeatmap();
+  buildLangChart();
+  buildMissingKslCards();
+  buildMissingTrendChart();
+  buildQueueChart();
+  buildTopicChart();
+
+  document.getElementById('tabBar').hidden = false;
+  showTab('overview');
 });
 
-/* ── Tab nav ──────────────────────────────────────────────────── */
-document.getElementById('tabNav').addEventListener('click',e=>{
-  const btn=e.target.closest('.tab-btn');
-  if(!btn) return;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-});
-
-/* ── Helpers ──────────────────────────────────────────────────── */
-function setStatus(id,type,msg){
-  const el=document.getElementById(id);
-  el.className='status-tag';
-  if(type==='ok') el.classList.add('status-ok');
-  else if(type==='error') el.classList.add('status-error');
-  else el.classList.add('status-idle');
-  el.textContent=msg;
-}
-
-function showBar(msg){
-  const b=document.getElementById('statusBar');
-  b.textContent=msg; b.style.display='block';
-  setTimeout(()=>b.style.display='none',4000);
-}
+// ─── THEME TOGGLE ────────────────────────────────────────────────────────────
+(function(){
+  const t = document.querySelector('[data-theme-toggle]');
+  const r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  r.setAttribute('data-theme', d);
+  t && t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+  });
+})();
 </script>
 </body>
 </html>
