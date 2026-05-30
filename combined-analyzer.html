@@ -201,7 +201,7 @@ function parseV2Workbook(fileName, workbook) {
       if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
       const excluded = Number(item.Excluded || 0) === 1;
       records.push({
-        source: 'V2', monthFromDate(item['Date closed']) || fallbackMonth, sla_code: sheetName,
+        source: 'V2', monthFromDate(item['Date closed'] || item['Date Closed'] || item['Date CLOSED']) || fallbackMonth, sla_code: sheetName,
         incident_ticket: item['Incident Ticket'] || '',
         queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
         iso_language: item.ISO_Language || '', topic: item.TOPIC || '',
