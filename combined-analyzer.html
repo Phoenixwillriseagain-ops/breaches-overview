@@ -169,7 +169,6 @@ function detectMonthFromFilename(name = '') {
   if (l.includes('march')) return 'March';
   if (l.includes('april')) return 'April';
   if (l.includes('may')) return 'May';
-  // Only use numeric patterns when clearly a month-number segment (e.g. _05_ or -05-)
   if (/[_\-]05[_\-]/.test(l)) return 'May';
   if (/[_\-]04[_\-]/.test(l)) return 'April';
   if (/[_\-]03[_\-]/.test(l)) return 'March';
@@ -193,6 +192,17 @@ function toNum(v) {
 }
 
 // ─── V2 PARSER ────────────────────────────────────────────────────────────────
+// Accepted date column names (case-insensitive match via normalised header)
+const V2_DATE_COLS = ['date closed', 'date_close', 'date_closed', 'date close', 'date_time_close', 'date_time_closed'];
+
+function getV2DateValue(item, headers) {
+  // Try exact known header variations first
+  for (const key of Object.keys(item)) {
+    if (V2_DATE_COLS.includes(key.toLowerCase().trim())) return item[key];
+  }
+  return '';
+}
+
 function parseV2Workbook(fileName, workbook) {
   const records = [];
   const fallbackMonth = detectMonthFromFilename(fileName);
@@ -206,11 +216,15 @@ function parseV2Workbook(fileName, workbook) {
       const item = Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']));
       if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
       const excluded = Number(item.Excluded || 0) === 1;
+      const dateVal = getV2DateValue(item, headers);
       records.push({
-        source: 'V2', month: monthFromDate(item['Date closed'] || item['Date Closed'] || item['Date CLOSED']) || fallbackMonth, sla_code: sheetName,
+        source: 'V2',
+        month: monthFromDate(dateVal) || fallbackMonth,
+        sla_code: sheetName,
         incident_ticket: item['Incident Ticket'] || '',
         queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
-        iso_language: item.ISO_Language || '', topic: item.TOPIC || '',
+        iso_language: item.ISO_Language || item.iso_language || item['ISO Language'] || '',
+        topic: item.TOPIC || item.Topic || item.topic || '',
         excluded, is_breach: !excluded
       });
     });
@@ -383,14 +397,19 @@ function buildHeatmap(monthFilter = 'all') {
       return `<td style="${bg};color:${rate>12?'#fff':'inherit'}" title="${breaches}/${total}">${text}</td>`;
     });
     const totalB = src.filter(r => r.iso_language === lang && r.is_breach).length;
+    // Filter out any lang value that looks like a date string
+    if (/^\d{4}-\d{2}-\d{2}/.test(lang) || /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(lang)) return '';
     return `<tr><td><strong>${lang}</strong></td>${cells.join('')}<td><strong>${totalB}</strong></td></tr>`;
-  });
+  }).filter(Boolean);
   table.innerHTML = header + `<tbody>${rows.join('')}</tbody>`;
 }
 
 // ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
 function buildLangChart() {
-  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language);
+  // Exclude any iso_language values that look like dates
+  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language &&
+    !/^\d{4}-\d{2}-\d{2}/.test(r.iso_language) &&
+    !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(r.iso_language));
   const counts = {};
   breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
@@ -508,7 +527,7 @@ function buildAlerts() {
   const lastMonth = MONTHS[MONTHS.length - 1];
   const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
   codes.forEach(sla => {
-    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(Boolean);
+    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(l => l && !/^\d{4}-\d{2}-\d{2}/.test(l) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(l));
     langs.forEach(lang => {
       const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
       const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
@@ -575,7 +594,6 @@ function downloadCSV() {
 }
 
 function downloadChartPNG() {
-  // Downloads the breach trend chart (trendChart)
   const canvas = document.getElementById('trendChart');
   if (!canvas) return;
   const a = document.createElement('a');
@@ -628,7 +646,7 @@ document.getElementById('v2Files').addEventListener('change', async e => {
   v2Records = [];
   for (const file of files) {
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type:'array' });
+    const wb = XLSX.read(buf, { type:'array', cellDates: false });
     v2Records.push(...parseV2Workbook(file.name, wb));
   }
   setStatus(document.getElementById('v2Status'), `${files.length} file(s) — ${v2Records.length} rows parsed`, 'ok');
@@ -642,10 +660,10 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'xlsx' || ext === 'xls') {
       const ab = await file.arrayBuffer();
-      const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+      // Use sheet_to_csv to preserve exact column header order (avoids column shift bugs)
+      const wb = XLSX.read(ab, { type: 'array', cellDates: false, raw: false });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
-      const csv = Papa.unparse(rows);
+      const csv = XLSX.utils.sheet_to_csv(sheet, { forceQuotes: false });
       csvRecords.push(...parse3093Csv(file.name, csv));
     } else {
       const text = await file.text();
