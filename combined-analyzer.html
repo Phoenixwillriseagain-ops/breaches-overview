@@ -63,7 +63,7 @@
     <button class="tab-btn active" data-tab="overview">Overview</button>
     <button class="tab-btn" data-tab="language">Language Analysis</button>
     <button class="tab-btn" data-tab="missing">Missing KSLs</button>
-    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>
+    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>           <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
 <!-- TAB: ALERTS & EXPORT -->
   <section class="tab-panel" id="tab-alerts" hidden>
     <div class="panel">
@@ -690,7 +690,7 @@ function showTab(name) {
 }
 
 document.getElementById('tabBar').addEventListener('click', e => {
-  if (e.target.dataset.tab) showTab(e.target.dataset.tab);
+  if (e.target.dataset.tab) { showTab(e.target.dataset.tab); if (e.target.dataset.tab === 'alerts') buildAlerts(); }
 });
 
 // ─── MONTH FILTER ─────────────────────────────────────────────────────────────
@@ -748,7 +748,7 @@ document.getElementById('runMerge').addEventListener('click', () => {
   buildMissingKslCards();
   buildMissingTrendChart();
   buildQueueChart();
-  buildTopicChart();
+  buildTopicChart();   buildAlerts();
 
   document.getElementById('tabBar').hidden = false;
   showTab('overview');
