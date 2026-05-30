@@ -46,8 +46,8 @@
       <p class="muted">Monthly 3093 SLA detail exports (KSL-2, KSL-3, KSL-5b, KSL-6)</p>
       <label class="drop-zone" id="csvDropZone">
         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span>Drop .csv files or click to browse</span>
-        <input id="csvFiles" type="file" accept=".csv" multiple />
+        <span>Drop .csv or .xlsx files or click to browse</span>
+        <input id="csvFiles" type="file" accept=".csv,.xlsx,.xls" multiple />
       </label>
       <div id="csvStatus" class="status-tag status-idle">No files loaded</div>
     </article>
@@ -615,8 +615,17 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []);
   csvRecords = [];
   for (const file of files) {
-    const text = await file.text();
-    csvRecords.push(...parse3093Csv(file.name, text));
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      const ab = await file.arrayBuffer();
+      const wb = XLSX.read(ab, { type: 'array', cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      csvRecords.push(...parse3093Csv(file.name, csv));
+    } else {
+      const text = await file.text();
+      csvRecords.push(...parse3093Csv(file.name, text));
+    }
   }
   setStatus(document.getElementById('csvStatus'), `${files.length} file(s) — ${csvRecords.length} rows parsed`, 'ok');
   checkReady();
