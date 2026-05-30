@@ -201,7 +201,7 @@ function parseV2Workbook(fileName, workbook) {
       if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
       const excluded = Number(item.Excluded || 0) === 1;
       records.push({
-        source: 'V2', monthFromDate(item['Date closed'] || item['Date Closed'] || item['Date CLOSED']) || fallbackMonth, sla_code: sheetName,
+        source: 'V2', month: monthFromDate(item['Date closed'] || item['Date Closed'] || item['Date CLOSED']) || fallbackMonth, sla_code: sheetName,
         incident_ticket: item['Incident Ticket'] || '',
         queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
         iso_language: item.ISO_Language || '', topic: item.TOPIC || '',
@@ -634,6 +634,9 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
 // ─── RUN ──────────────────────────────────────────────────────────────────────
 document.getElementById('runMerge').addEventListener('click', () => {
   allRecords = [...v2Records, ...csvRecords];
+  console.log('DEBUG v2Records:', v2Records.length, v2Records[0]);
+  console.log('DEBUG csvRecords:', csvRecords.length, csvRecords[0]);
+  console.log('DEBUG allRecords:', allRecords.length);
     rebuildMonths(allRecords);
   document.getElementById('recordCount').textContent =
     `${allRecords.length.toLocaleString()} total records — ${allRecords.filter(r=>r.is_breach).length.toLocaleString()} breaches`;
