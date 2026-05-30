@@ -64,6 +64,8 @@
     <button class="tab-btn" data-tab="language">Language Analysis</button>
     <button class="tab-btn" data-tab="missing">Missing KSLs</button>
     <button class="tab-btn" data-tab="queue">Queue Breakdown</button>           <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
+          <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
+              </nav>
 <!-- TAB: ALERTS & EXPORT -->
   <section class="tab-panel" id="tab-alerts" hidden>
     <div class="panel">
@@ -78,292 +80,8 @@
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem">
         <button class="btn btn-primary" onclick="downloadCSV()">&#8595; Download CSV</button>
         <button class="btn btn-secondary" onclick="downloadChartPNG()">&#8595; Download Chart PNG</button>
-// ─── PHASE 3: ALERT ENGINE ──────────────────────────────────────────────────
-function buildAlerts() {
-  const cards = [];
-  const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
-  codes.forEach(sla => {
-    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(Boolean);
-    langs.forEach(lang => {
-      const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
-      const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
-      if (!total) return;
-      const rate = (breaches / total) * 100;
-      const mar = recs.filter(r => r.month === 'March' && r.is_breach).length;
-      const may = recs.filter(r => r.month === 'May' && r.is_breach).length;
-      const mayTotal = recs.filter(r => r.month === 'May').length;
-      const mom = mar > 0 ? ((may - mar) / mar) * 100 : null;
-      const isNewInMay = !recs.some(r => r.month !== 'May') && may > 5;
-      let sev = null, reason = '';
-      if (rate > 10 && mom !== null && mom > 25) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% with +${mom.toFixed(0)}% MoM increase.`; }
-      else if (rate > 10) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% exceeds 10% threshold.`; }
-      else if (mom !== null && mom > 25) { sev = 'watch'; reason = `MoM increase of +${mom.toFixed(0)}% (Mar→May).`; }
-      else if (isNewInMay) { sev = 'watch'; reason = `New language in May with ${may} breaches (spike detected).`; }
-      if (!sev) return;
-      const action = sev === 'critical'
-        ? `Escalate ${sla} for ${lang}: assign queue lead review, target <5% breach rate by next cycle.`
-        : `Monitor ${sla} for ${lang}: track MoM trend, review queue allocation.`;
-      cards.push({ sev, sla, lang, rate: rate.toFixed(1), mom: mom !== null ? mom.toFixed(0) : null, reason, action });
-    });
-  });
-  cards.sort((a, b) => (b.sev === 'critical') - (a.sev === 'critical'));
-  const container = document.getElementById('alertCards');
-  if (!cards.length) {
-    container.innerHTML = '<div class="alert-card alert-stable"><span class="alert-badge badge-stable">&#9899; Stable</span><div><strong>All indicators within normal range.</strong><p>No SLA + language combinations exceed alert thresholds.</p></div></div>';
-  } else {
-    container.innerHTML = cards.map(c => `
-      <div class="alert-card alert-${c.sev}">
-        <span class="alert-badge badge-${c.sev}">${c.sev === 'critical' ? '&#128308; Critical' : '&#129000; Watch'}</span>
-        <div>
-          <strong>${c.sla} — ${c.lang}</strong>
-          <p>${c.reason}</p>
-          <p class="muted" style="font-size:0.78rem;margin-top:0.25rem">Suggested action: ${c.action}</p>
-        </div>
-      </div>`).join('');
-  }
-  buildActionPlan(cards);
-}
-function buildActionPlan(cards) {
-  const now = new Date().toLocaleDateString('en-GB');
-  const critical = cards.filter(c => c.sev === 'critical');
-  const watch = cards.filter(c => c.sev === 'watch');
-  let text = `BREACH OVERVIEW — ACTION PLAN\nGenerated: ${now}\n${'='.repeat(50)}\n\n`;
-  if (critical.length) {
-    text += `CRITICAL ACTIONS (${critical.length})\n${'-'.repeat(30)}\n`;
-    critical.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — ${c.rate}% breach rate\n   Action: ${c.action}\n\n`; });
-  }
-  if (watch.length) {
-    text += `WATCH ITEMS (${watch.length})\n${'-'.repeat(30)}\n`;
-    watch.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — MoM +${c.mom}%\n   Action: ${c.action}\n\n`; });
-  }
-  if (!cards.length) text += 'No alert conditions detected. All SLA + language combinations within normal range.\n';
-  document.getElementById('actionPlanText').value = text;
-}
-// ─── PHASE 3: EXPORT FUNCTIONS ───────────────────────────────────────────────
-function downloadCSV() {
-  const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
-  const rows = [cols.join(','), ...allRecords.map(r => cols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))];
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
-  a.download = 'breach-analysis-export.csv'; a.click();
-}
-function downloadChartPNG() {
-  const canvas = document.getElementById('trendChart');
-  if (!canvas) return;
-  const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = 'breach-trend-chart.png'; a.click();
-}
-function printActionPlan() {
-  const text = document.getElementById('actionPlanText').value;
-showTab('overview');
-  buildAlerts();  w.document.write(`<html><head><title>Breach Action Plan</title><style>body{font-family:monospace;white-space:pre-wrap;padding:2rem;font-size:13px}</style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
-  w.document.close(); w.print();
-}
-// ─── THEME TOGGLE      </div>
     </div>
   </section>
-</body>
-<!-- TAB: ALERTS & EXPORT -->
-  <section class="tab-panel" id="tab-alerts" hidden>
-    <div class="panel">
-      <h2>Automated Alerts</h2>
-      <p class="muted">Auto-flagged SLA + language combinations based on breach rate, MoM change and new language spikes.</p>
-      <div id="alertCards" class="alert-grid"></div>
-    </div>
-    <div class="panel" style="margin-top:1.5rem">
-      <h2>Action Plan Export</h2>
-      <p class="muted">Pre-filled from analysis. Edit before printing or downloading.</p>
-      <textarea id="actionPlanText" rows="12" style="width:100%;font-family:inherit;font-size:0.85rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-alt);color:var(--text);resize:vertical;"></textarea>
-      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem">
-        <button class="btn btn-primary" onclick="downloadCSV()">&#8595; Download CSV</button>
-        <button class="btn btn-secondary" onclick="downloadChartPNG()">&#8595; Download Chart PNG</button>
-// ─── PHASE 3: ALERT ENGINE ──────────────────────────────────────────────────
-function buildAlerts() {
-  const cards = [];
-  const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
-  codes.forEach(sla => {
-    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(Boolean);
-    langs.forEach(lang => {
-      const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
-      const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
-      if (!total) return;
-      const rate = (breaches / total) * 100;
-      const mar = recs.filter(r => r.month === 'March' && r.is_breach).length;
-      const may = recs.filter(r => r.month === 'May' && r.is_breach).length;
-      const mayTotal = recs.filter(r => r.month === 'May').length;
-      const mom = mar > 0 ? ((may - mar) / mar) * 100 : null;
-      const isNewInMay = !recs.some(r => r.month !== 'May') && may > 5;
-      let sev = null, reason = '';
-      if (rate > 10 && mom !== null && mom > 25) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% with +${mom.toFixed(0)}% MoM increase.`; }
-      else if (rate > 10) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% exceeds 10% threshold.`; }
-      else if (mom !== null && mom > 25) { sev = 'watch'; reason = `MoM increase of +${mom.toFixed(0)}% (Mar→May).`; }
-      else if (isNewInMay) { sev = 'watch'; reason = `New language in May with ${may} breaches (spike detected).`; }
-      if (!sev) return;
-      const action = sev === 'critical'
-        ? `Escalate ${sla} for ${lang}: assign queue lead review, target <5% breach rate by next cycle.`
-        : `Monitor ${sla} for ${lang}: track MoM trend, review queue allocation.`;
-      cards.push({ sev, sla, lang, rate: rate.toFixed(1), mom: mom !== null ? mom.toFixed(0) : null, reason, action });
-    });
-  });
-  cards.sort((a, b) => (b.sev === 'critical') - (a.sev === 'critical'));
-  const container = document.getElementById('alertCards');
-  if (!cards.length) {
-    container.innerHTML = '<div class="alert-card alert-stable"><span class="alert-badge badge-stable">&#9899; Stable</span><div><strong>All indicators within normal range.</strong><p>No SLA + language combinations exceed alert thresholds.</p></div></div>';
-  } else {
-    container.innerHTML = cards.map(c => `
-      <div class="alert-card alert-${c.sev}">
-        <span class="alert-badge badge-${c.sev}">${c.sev === 'critical' ? '&#128308; Critical' : '&#129000; Watch'}</span>
-        <div>
-          <strong>${c.sla} — ${c.lang}</strong>
-          <p>${c.reason}</p>
-          <p class="muted" style="font-size:0.78rem;margin-top:0.25rem">Suggested action: ${c.action}</p>
-        </div>
-      </div>`).join('');
-  }
-  buildActionPlan(cards);
-}
-function buildActionPlan(cards) {
-  const now = new Date().toLocaleDateString('en-GB');
-  const critical = cards.filter(c => c.sev === 'critical');
-  const watch = cards.filter(c => c.sev === 'watch');
-  let text = `BREACH OVERVIEW — ACTION PLAN\nGenerated: ${now}\n${'='.repeat(50)}\n\n`;
-  if (critical.length) {
-    text += `CRITICAL ACTIONS (${critical.length})\n${'-'.repeat(30)}\n`;
-    critical.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — ${c.rate}% breach rate\n   Action: ${c.action}\n\n`; });
-  }
-  if (watch.length) {
-    text += `WATCH ITEMS (${watch.length})\n${'-'.repeat(30)}\n`;
-    watch.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — MoM +${c.mom}%\n   Action: ${c.action}\n\n`; });
-  }
-  if (!cards.length) text += 'No alert conditions detected. All SLA + language combinations within normal range.\n';
-  document.getElementById('actionPlanText').value = text;
-}
-// ─── PHASE 3: EXPORT FUNCTIONS ───────────────────────────────────────────────
-function downloadCSV() {
-  const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
-  const rows = [cols.join(','), ...allRecords.map(r => cols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))];
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
-  a.download = 'breach-analysis-export.csv'; a.click();
-}
-function downloadChartPNG() {
-  const canvas = document.getElementById('trendChart');
-  if (!canvas) return;
-  const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = 'breach-trend-chart.png'; a.click();
-}
-function printActionPlan() {
-  const text = document.getElementById('actionPlanText').value;
-  const w = window.open('', '_blank');
-  w.document.write(`<html><head><title>Breach Action Plan</title><style>body{font-family:monospace;white-space:pre-wrap;padding:2rem;font-size:13px}</style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
-  w.document.close(); w.print();
-}
-// ─── THEME TOGGLE      </div>
-    </div>
-  </section>
-</body>
-<!-- TAB: ALERTS & EXPORT -->
-  <section class="tab-panel" id="tab-alerts" hidden>
-    <div class="panel">
-      <h2>Automated Alerts</h2>
-      <p class="muted">Auto-flagged SLA + language combinations based on breach rate, MoM change and new language spikes.</p>
-      <div id="alertCards" class="alert-grid"></div>
-    </div>
-    <div class="panel" style="margin-top:1.5rem">
-      <h2>Action Plan Export</h2>
-      <p class="muted">Pre-filled from analysis. Edit before printing or downloading.</p>
-      <textarea id="actionPlanText" rows="12" style="width:100%;font-family:inherit;font-size:0.85rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-alt);color:var(--text);resize:vertical;"></textarea>
-      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem">
-        <button class="btn btn-primary" onclick="downloadCSV()">&#8595; Download CSV</button>
-        <button class="btn btn-secondary" onclick="downloadChartPNG()">&#8595; Download Chart PNG</button>
-        <button class="btn btn-secondary" onclick="printActionPlan()">&#128438; Print Action Plan</button>
-      </div>
-    </div>
-  </section>
-</body>
-      <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
-  </nav>
-
-  <!-- TAB: OVERVIEW -->
-  <section class="tab-panel" id="tab-overview" hidden>
-    <div class="month-filter">
-      <label class="muted">Filter month:</label>
-      <div class="pill-group" id="monthFilter">
-        <button class="pill active" data-month="all">All</button>
-        <button class="pill" data-month="March">March</button>
-        <button class="pill" data-month="April">April</button>
-        <button class="pill" data-month="May">May</button>
-      </div>
-    </div>
-    <div id="kpiGrid" class="kpi-grid"></div>
-    <div class="chart-grid">
-      <div class="panel chart-panel">
-        <h2>Monthly breach trend by SLA</h2>
-        <p class="muted chart-note">Non-excluded breaches per SLA code across March, April and May.</p>
-        <canvas id="trendChart"></canvas>
-      </div>
-      <div class="panel chart-panel">
-        <h2>Breach distribution by source</h2>
-        <canvas id="sourceChart"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- TAB: LANGUAGE -->
-  <section class="tab-panel" id="tab-language" hidden>
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>Language × SLA breach rate heatmap</h2>
-          <p class="muted">Breach rate % per language per SLA code (3093 missing KSLs only). Red = high rate.</p>
-        </div>
-        <div class="pill-group" id="langMonthFilter">
-          <button class="pill active" data-lmonth="all">All months</button>
-          <button class="pill" data-lmonth="March">March</button>
-          <button class="pill" data-lmonth="April">April</button>
-          <button class="pill" data-lmonth="May">May</button>
-        </div>
-      </div>
-      <div class="table-scroll">
-        <table id="heatmapTable" class="heatmap-table"></table>
-      </div>
-    </div>
-    <div class="panel chart-panel" style="margin-top:20px">
-      <h2>Breach count by language (all SLAs)</h2>
-      <canvas id="langChart"></canvas>
-    </div>
-  </section>
-
-  <!-- TAB: MISSING KSLs -->
-  <section class="tab-panel" id="tab-missing" hidden>
-    <div class="missing-ksl-grid" id="missingKslCards"></div>
-    <div class="panel chart-panel" style="margin-top:20px">
-      <h2>Missing KSL monthly trend</h2>
-      <p class="muted chart-note">KSL-2a, KSL-2b, KSL-2c, KSL-3a, KSL-5b, KSL-6 breach counts per month.</p>
-      <canvas id="missingTrendChart"></canvas>
-    </div>
-  </section>
-
-  <!-- TAB: QUEUE -->
-  <section class="tab-panel" id="tab-queue" hidden>
-    <div class="chart-grid">
-      <div class="panel chart-panel">
-        <h2>Top queues by breach count</h2>
-        <p class="muted chart-note">Combined across all SLA codes and months.</p>
-        <canvas id="queueChart"></canvas>
-      </div>
-      <div class="panel chart-panel">
-        <h2>Top applications driving breaches</h2>
-        <p class="muted chart-note">#SW#AOS and #SW#ISTA are systemic drivers across all missing KSLs.</p>
-        <canvas id="topicChart"></canvas>
-      </div>
-    </div>
-  </section>
-
-</main>
-
 <script>
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const MONTHS = ['March', 'April', 'May'];
@@ -681,6 +399,88 @@ function buildTopicChart() {
   });
 }
 
+// ─── PHASE 3: ALERT ENGINE ──────────────────────────────────────────────────
+function buildAlerts() {
+  const cards = [];
+  const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
+  codes.forEach(sla => {
+    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(Boolean);
+    langs.forEach(lang => {
+      const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
+      const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
+      if (!total) return;
+      const rate = (breaches / total) * 100;
+      const mar = recs.filter(r => r.month === 'March' && r.is_breach).length;
+      const may = recs.filter(r => r.month === 'May' && r.is_breach).length;
+      const mayTotal = recs.filter(r => r.month === 'May').length;
+      const mom = mar > 0 ? ((may - mar) / mar) * 100 : null;
+      const isNewInMay = !recs.some(r => r.month !== 'May') && may > 5;
+      let sev = null, reason = '';
+      if (rate > 10 && mom !== null && mom > 25) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% with +${mom.toFixed(0)}% MoM increase.`; }
+      else if (rate > 10) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% exceeds 10% threshold.`; }
+      else if (mom !== null && mom > 25) { sev = 'watch'; reason = `MoM increase of +${mom.toFixed(0)}% (Mar→May).`; }
+      else if (isNewInMay) { sev = 'watch'; reason = `New language in May with ${may} breaches (spike detected).`; }
+      if (!sev) return;
+      const action = sev === 'critical'
+        ? `Escalate ${sla} for ${lang}: assign queue lead review, target <5% breach rate by next cycle.`
+        : `Monitor ${sla} for ${lang}: track MoM trend, review queue allocation.`;
+      cards.push({ sev, sla, lang, rate: rate.toFixed(1), mom: mom !== null ? mom.toFixed(0) : null, reason, action });
+    });
+  });
+  cards.sort((a, b) => (b.sev === 'critical') - (a.sev === 'critical'));
+  const container = document.getElementById('alertCards');
+  if (!cards.length) {
+    container.innerHTML = '<div class="alert-card alert-stable"><span class="alert-badge badge-stable">&#9899; Stable</span><div><strong>All indicators within normal range.</strong><p>No SLA + language combinations exceed alert thresholds.</p></div></div>';
+  } else {
+    container.innerHTML = cards.map(c => `
+      <div class="alert-card alert-${c.sev}">
+        <span class="alert-badge badge-${c.sev}">${c.sev === 'critical' ? '&#128308; Critical' : '&#129000; Watch'}</span>
+        <div>
+          <strong>${c.sla} — ${c.lang}</strong>
+          <p>${c.reason}</p>
+          <p class="muted" style="font-size:0.78rem;margin-top:0.25rem">Suggested action: ${c.action}</p>
+        </div>
+      </div>`).join('');
+  }
+  buildActionPlan(cards);
+}
+function buildActionPlan(cards) {
+  const now = new Date().toLocaleDateString('en-GB');
+  const critical = cards.filter(c => c.sev === 'critical');
+  const watch = cards.filter(c => c.sev === 'watch');
+  let text = `BREACH OVERVIEW — ACTION PLAN\nGenerated: ${now}\n${'='.repeat(50)}\n\n`;
+  if (critical.length) {
+    text += `CRITICAL ACTIONS (${critical.length})\n${'-'.repeat(30)}\n`;
+    critical.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — ${c.rate}% breach rate\n   Action: ${c.action}\n\n`; });
+  }
+  if (watch.length) {
+    text += `WATCH ITEMS (${watch.length})\n${'-'.repeat(30)}\n`;
+    watch.forEach((c, i) => { text += `${i+1}. [${c.sla}] ${c.lang} — MoM +${c.mom}%\n   Action: ${c.action}\n\n`; });
+  }
+  if (!cards.length) text += 'No alert conditions detected. All SLA + language combinations within normal range.\n';
+  document.getElementById('actionPlanText').value = text;
+}
+// ─── PHASE 3: EXPORT FUNCTIONS ───────────────────────────────────────────────
+function downloadCSV() {
+  const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
+  const rows = [cols.join(','), ...allRecords.map(r => cols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
+  a.download = 'breach-analysis-export.csv'; a.click();
+}
+function downloadChartPNG() {
+  const canvas = document.getElementById('trendChart');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'breach-trend-chart.png'; a.click();
+}
+function printActionPlan() {
+  const text = document.getElementById('actionPlanText').value;
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>Breach Action Plan</title><style>body{font-family:monospace;white-space:pre-wrap;padding:2rem;font-size:13px}</style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
+  w.document.close(); w.print();
+}
 // ─── TAB LOGIC ────────────────────────────────────────────────────────────────
 function showTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
@@ -748,10 +548,11 @@ document.getElementById('runMerge').addEventListener('click', () => {
   buildMissingKslCards();
   buildMissingTrendChart();
   buildQueueChart();
-  buildTopicChart();   buildAlerts();
+    buildTopicChart();
 
   document.getElementById('tabBar').hidden = false;
   showTab('overview');
+    buildAlerts();
 });
 
 // ─── THEME TOGGLE ────────────────────────────────────────────────────────────
