@@ -157,7 +157,16 @@
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 let MONTHS = [];
 const MISSING_KSLS = ['KSL-2a', 'KSL-2b', 'KSL-2c', 'KSL-3a', 'KSL-5b', 'KSL-6'];
-const DATE_LIKE = /^\d{4}-\d{2}-\d{2}|^\d{1,2}\/\d{1,2}\/\d{2,4}/;
+
+// Valid ISO 639-1/2 language codes are exactly 2–3 lowercase letters.
+// This is the single source of truth — applied at parse time AND in UI functions.
+// Rejects dates, Excel serials, empty strings, and anything non-alphabetic.
+const VALID_LANG = /^[a-z]{2,3}$/;
+
+function isValidLang(v) {
+  if (!v) return false;
+  return VALID_LANG.test(String(v).trim());
+}
 
 function detectMonthFromFilename(name = '') {
   const l = name.toLowerCase();
@@ -172,8 +181,7 @@ function detectMonthFromFilename(name = '') {
 
 function monthFromDate(value) {
   if (!value) return null;
-  // Normalise: replace space separator with T, replace / with - for ISO parsing
-  // Safari/Firefox reject 'YYYY-MM-DD HH:MM:SS' without the T separator
+  // Normalise: replace space separator with T so Safari/Firefox parse correctly
   const str = String(value).replace(/\//g, '-').replace(' ', 'T');
   const d = new Date(str);
   if (isNaN(d.getTime())) return null;
@@ -212,6 +220,7 @@ function parseV2Workbook(fileName, workbook) {
       if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
       const excluded = Number(item.Excluded || 0) === 1;
       const dateVal = getV2DateValue(item);
+      const rawLang = item.ISO_Language || item.iso_language || item['ISO Language'] || '';
       records.push({
         source: 'V2',
         month: monthFromDate(dateVal) || fallbackMonth,
@@ -219,7 +228,8 @@ function parseV2Workbook(fileName, workbook) {
         incident_ticket: item['Incident Ticket'] || '',
         queue: item.Queue || '',
         queue_normalized: normalizeQueue(item.Queue || ''),
-        iso_language: item.ISO_Language || item.iso_language || item['ISO Language'] || '',
+        // Sanitise at parse time: store '' if not a valid language code
+        iso_language: isValidLang(rawLang) ? String(rawLang).trim() : '',
         language_name: '',
         topic: item.TOPIC || item.Topic || item.topic || '',
         excluded,
@@ -230,7 +240,7 @@ function parseV2Workbook(fileName, workbook) {
   return records;
 }
 
-// ─── CSV/XLSX PARSER (3093 format) ──────────────────────────────────────────────
+// ─── CSV/XLSX PARSER (3093 format) ────────────────────────────────────────────
 const COL_MAP = {
   'SLA Kennzahl': 'sla_code',
   'SLA Kennzahl Name': 'sla_name',
@@ -251,7 +261,6 @@ function parse3093Csv(fileName, text) {
   return result.data.map(raw => {
     const row = {};
     Object.entries(COL_MAP).forEach(([src, tgt]) => { row[tgt] = raw[src] ?? ''; });
-    // Skip rows with no SLA code (malformed / header mismatch)
     if (!row.sla_code) return null;
     const num = toNum(row.numerator), den = toNum(row.denominator), dir = toNum(row.compare_dir);
     let isBreach = false;
@@ -263,7 +272,9 @@ function parse3093Csv(fileName, text) {
       sla_code: row.sla_code, sla_name: row.sla_name,
       incident_ticket: row.incident_ticket, status: row.status,
       queue: row.queue, queue_normalized: normalizeQueue(row.queue),
-      iso_language: row.iso_language, language_name: row.language_name,
+      // Sanitise at parse time: store '' if not a valid language code
+      iso_language: isValidLang(row.iso_language) ? String(row.iso_language).trim() : '',
+      language_name: row.language_name,
       topic: row.topic, excluded: false, is_breach: Boolean(isBreach)
     };
   }).filter(Boolean);
@@ -385,16 +396,20 @@ function buildSourceChart() {
 
 // ─── LANGUAGE HEATMAP ────────────────────────────────────────────────────────
 function buildHeatmap(monthFilter = 'all') {
-  // Include both 3093 and V2 sources that carry iso_language
+  // FIX: show ALL SLAs (V2 + 3093), not just MISSING_KSLS.
+  // iso_language is already sanitised at parse time via isValidLang(),
+  // so no date values can reach here.
   const src = allRecords.filter(r =>
-    MISSING_KSLS.includes(r.sla_code) &&
+    r.iso_language &&
     (monthFilter === 'all' || r.month === monthFilter)
   );
-  // Pre-filter: remove date-like or empty language values
+
   const langs = [...new Set(src.map(r => r.iso_language))]
-    .filter(l => l && !DATE_LIKE.test(l))
+    .filter(isValidLang)
     .sort();
-  const slaCols = MISSING_KSLS.filter(s => src.some(r => r.sla_code === s));
+
+  const slaCols = [...new Set(src.map(r => r.sla_code).filter(Boolean))].sort();
+
   const table = document.getElementById('heatmapTable');
   if (!langs.length || !slaCols.length) {
     table.innerHTML = '<tbody><tr><td class="muted" colspan="99">No language data available for the selected filter.</td></tr></tbody>';
@@ -418,9 +433,7 @@ function buildHeatmap(monthFilter = 'all') {
 
 // ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
 function buildLangChart() {
-  const breachRecs = allRecords.filter(r =>
-    r.is_breach && r.iso_language && !DATE_LIKE.test(r.iso_language)
-  );
+  const breachRecs = allRecords.filter(r => r.is_breach && isValidLang(r.iso_language));
   const counts = {};
   breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
@@ -453,7 +466,6 @@ function buildMissingKslCards() {
     const rows = src.filter(r => r.sla_code === sla);
     const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
     const rate = total ? (breaches/total*100).toFixed(1) : '0.0';
-    // Dynamic mini-bars: use actual MONTHS array (not hardcoded Mar/Apr/May)
     const miniBars = MONTHS.map(m => {
       const v = rows.filter(r=>r.month===m&&r.is_breach).length;
       return `<span class="mini-bar-wrap"><span class="mini-bar" style="height:${Math.min(v*4,56)}px;background:${SLA_COLORS[sla]||'#01696f'}"></span><span class="mini-label">${m.slice(0,3)}<br>${v}</span></span>`;
@@ -531,7 +543,7 @@ function buildTopicChart() {
   });
 }
 
-// ─── ALERT ENGINE ───────────────────────────────────────────────────────────────
+// ─── ALERT ENGINE ─────────────────────────────────────────────────────────────
 function buildAlerts() {
   const cards = [];
   const firstMonth = MONTHS[0];
@@ -540,7 +552,7 @@ function buildAlerts() {
   codes.forEach(sla => {
     const langs = [...new Set(
       allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language)
-    )].filter(l => l && !DATE_LIKE.test(l));
+    )].filter(isValidLang);
     langs.forEach(lang => {
       const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
       const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
@@ -598,7 +610,7 @@ function buildActionPlan(cards) {
   document.getElementById('actionPlanText').value = text;
 }
 
-// ─── EXPORT FUNCTIONS ───────────────────────────────────────────────────────────
+// ─── EXPORT FUNCTIONS ─────────────────────────────────────────────────────────
 function downloadCSV() {
   const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
   const rows = [cols.join(','), ...allRecords.map(r => cols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))];
@@ -619,7 +631,6 @@ function downloadChartPNG() {
   a.href = url;
   a.download = 'breach-trend-chart.png';
   a.click();
-  // Canvas data URLs don't need revoking (not a blob URL)
 }
 
 function printActionPlan() {
@@ -686,7 +697,6 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'xlsx' || ext === 'xls') {
       const ab = await file.arrayBuffer();
-      // Use sheet_to_csv to preserve exact column header order (avoids column shift bugs)
       const wb = XLSX.read(ab, { type: 'array', cellDates: false, raw: false });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const csv = XLSX.utils.sheet_to_csv(sheet, { forceQuotes: false });
@@ -703,7 +713,6 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
 // ─── RUN ──────────────────────────────────────────────────────────────────────
 document.getElementById('runMerge').addEventListener('click', () => {
   allRecords = [...v2Records, ...csvRecords];
-  // Reset filter state on every fresh run
   activeMonth = 'all';
   activeLangMonth = 'all';
 
@@ -726,7 +735,7 @@ document.getElementById('runMerge').addEventListener('click', () => {
   buildAlerts();
 });
 
-// ─── INTEGRITY GUARD ─────────────────────────────────────────────────────────
+// ─── INTEGRITY GUARD ──────────────────────────────────────────────────────────
 (function _integrityGuard() {
   const errors = [];
   const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart',
