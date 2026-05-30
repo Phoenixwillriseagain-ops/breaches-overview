@@ -620,7 +620,7 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
       const ab = await file.arrayBuffer();
       const wb = XLSX.read(ab, { type: 'array', cellDates: true });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const csv = XLSX.utils.sheet_to_csv(sheet);
+      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' }); const csv = Papa.unparse(rows);
       csvRecords.push(...parse3093Csv(file.name, csv));
     } else {
       const text = await file.text();
