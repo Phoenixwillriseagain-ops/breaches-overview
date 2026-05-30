@@ -64,10 +64,11 @@
     <button class="tab-btn active" data-tab="overview">Overview</button>
     <button class="tab-btn" data-tab="language">Language Analysis</button>
     <button class="tab-btn" data-tab="missing">Missing KSLs</button>
-    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>           <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
-          <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
-                  <button class="tab-btn" data-tab="actionplan">Action Plan</button>
-              </nav>
+    <button class="tab-btn" data-tab="queue">Queue Breakdown</button>
+    <button class="tab-btn" data-tab="alerts">Alerts &amp; Export</button>
+    <button class="tab-btn" data-tab="actionplan">Action Plan</button>
+  </nav>
+
   <!-- TAB: OVERVIEW -->
   <section class="tab-panel" id="tab-overview" hidden>
     <div class="panel">
@@ -87,7 +88,6 @@
       <h2>Breach split by source</h2>
       <canvas id="sourceChart" height="90"></canvas>
     </div>
-    <p id="recordCount" class="muted" style="text-align:center;padding:0.5rem 0"></p>
   </section>
 
   <!-- TAB: LANGUAGE ANALYSIS -->
@@ -135,27 +135,30 @@
       <canvas id="topicChart" height="110"></canvas>
     </div>
   </section>
-              <!-- TAB: ALERTS & EXPORT -->
+
+  <!-- TAB: ALERTS & EXPORT -->
   <section class="tab-panel" id="tab-alerts" hidden>
     <div class="panel">
       <h2>Automated Alerts</h2>
       <p class="muted">Auto-flagged SLA + language combinations based on breach rate, MoM change and new language spikes.</p>
       <div id="alertCards" class="alert-grid"></div>
     </div>
-      </section>
+  </section>
 
   <!-- TAB: ACTION PLAN -->
   <section class="tab-panel" id="tab-actionplan" hidden>
-<div class="panel" style="margin-top:1.5rem">
+    <div class="panel" style="margin-top:1.5rem">
       <h2>Action Plan Export</h2>
       <p class="muted">Pre-filled from analysis. Edit before printing or downloading.</p>
       <textarea id="actionPlanText" rows="12" style="width:100%;font-family:inherit;font-size:0.85rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-alt);color:var(--text);resize:vertical;"></textarea>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem">
         <button class="btn btn-primary" onclick="downloadCSV()">&#8595; Download CSV</button>
         <button class="btn btn-secondary" onclick="downloadChartPNG()">&#8595; Download Chart PNG</button>
-              <button class="btn btn-secondary" onclick="printActionPlan()">&#128438; Print Action Plan</button>
-</div>
+        <button class="btn btn-secondary" onclick="printActionPlan()">&#128438; Print Action Plan</button>
+      </div>
+    </div>
   </section>
+
 <script>
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 let MONTHS = ['March', 'April', 'May']; // dynamic — rebuilt after file parse
@@ -165,9 +168,11 @@ function detectMonthFromFilename(name = '') {
   const l = name.toLowerCase();
   if (l.includes('march')) return 'March';
   if (l.includes('april')) return 'April';
-  if (l.includes('may') || l.includes('-14') || l.includes('_14')) return 'May';
-  if (l.includes('-12') || l.includes('_12')) return 'May';
-  if (l.includes('-13') || l.includes('_13')) return 'April';
+  if (l.includes('may')) return 'May';
+  // Only use numeric patterns when clearly a month-number segment (e.g. _05_ or -05-)
+  if (/[_\-]05[_\-]/.test(l)) return 'May';
+  if (/[_\-]04[_\-]/.test(l)) return 'April';
+  if (/[_\-]03[_\-]/.test(l)) return 'March';
   return null;
 }
 
@@ -227,7 +232,6 @@ const COL_MAP = {
 };
 
 function parse3093Csv(fileName, text) {
-  
   const result = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
   return result.data.map(raw => {
     const row = {};
@@ -237,7 +241,6 @@ function parse3093Csv(fileName, text) {
     if (dir === 1) isBreach = num < den;
     if (dir === -1) isBreach = num > 0;
     const month = monthFromDate(row.date_closed);
-    
     return {
       source: '3093', file_name: fileName, month,
       sla_code: row.sla_code, sla_name: row.sla_name,
@@ -262,22 +265,24 @@ function setStatus(el, text, type) {
 
 function checkReady() {
   const btn = document.getElementById('runMerge');
-  if (v2Records.length > 0 || csvRecords.length > 0) {
+  if (v2Records.length + csvRecords.length > 0) {
     btn.disabled = false;
     btn.textContent = 'Run analysis';
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Load files to run analysis';
   }
 }
+
 function rebuildMonths(records) {
   const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const found = [...new Set(records.map(r => r.month).filter(Boolean))];
   MONTHS = found.sort((a, b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
-  // Rebuild month filter pills dynamically
   ['monthFilter', 'langMonthFilter'].forEach(filterId => {
     const el = document.getElementById(filterId);
     if (!el) return;
     const isLang = filterId === 'langMonthFilter';
     const attr = isLang ? 'data-lmonth' : 'data-month';
-    const handler = isLang ? (v => { activeLangMonth = v; }) : (v => { activeMonth = v; });
     el.innerHTML = `<button class="pill active" ${attr}="all">All months</button>` +
       MONTHS.map(m => `<button class="pill" ${attr}="${m}">${m}</button>`).join('');
   });
@@ -298,21 +303,22 @@ const SLA_COLORS = {
 function buildKpiGrid(records) {
   const grid = document.getElementById('kpiGrid');
   const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
+  const firstMonth = MONTHS[0];
+  const lastMonth = MONTHS[MONTHS.length - 1];
   grid.innerHTML = slaCodes.map(sla => {
     const rows = records.filter(r => r.sla_code === sla);
     const breaches = rows.filter(r => r.is_breach).length;
     const total = rows.length;
     const rate = total ? ((breaches / total) * 100).toFixed(1) : '0.0';
     const color = SLA_COLORS[sla] || '#01696f';
-    // MoM arrow for 3093 source
     let arrow = '';
-    if (MISSING_KSLS.includes(sla)) {
-      const mar = records.filter(r => r.sla_code === sla && r.month === 'March' && r.is_breach).length;
-      const may = records.filter(r => r.sla_code === sla && r.month === 'May' && r.is_breach).length;
-      if (mar > 0) {
-        const chg = ((may - mar) / mar * 100).toFixed(0);
-        const up = may >= mar;
-        arrow = `<span class="trend ${up ? 'trend-up' : 'trend-down'}">${up ? '\u2191' : '\u2193'} ${Math.abs(chg)}%</span>`;
+    if (MISSING_KSLS.includes(sla) && firstMonth && lastMonth && firstMonth !== lastMonth) {
+      const first = records.filter(r => r.sla_code === sla && r.month === firstMonth && r.is_breach).length;
+      const last = records.filter(r => r.sla_code === sla && r.month === lastMonth && r.is_breach).length;
+      if (first > 0) {
+        const chg = ((last - first) / first * 100).toFixed(0);
+        const up = last >= first;
+        arrow = `<span class="trend ${up ? 'trend-up' : 'trend-down'}">${up ? '\u2191' : '\u2193'} ${Math.abs(chg)}% ${firstMonth.slice(0,3)}\u2192${lastMonth.slice(0,3)}</span>`;
       }
     }
     return `<article class="kpi-card" style="--accent:${color}">
@@ -411,6 +417,8 @@ const KSL_DESC = {
 function buildMissingKslCards() {
   const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code));
   const container = document.getElementById('missingKslCards');
+  const firstMonth = MONTHS[0];
+  const lastMonth = MONTHS[MONTHS.length - 1];
   container.innerHTML = MISSING_KSLS.map(sla => {
     const rows = src.filter(r => r.sla_code === sla);
     const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
@@ -419,10 +427,14 @@ function buildMissingKslCards() {
     const apr = rows.filter(r=>r.month==='April'&&r.is_breach).length;
     const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
     let chgLabel = '';
-    if (mar > 0) {
-      const chg = ((may-mar)/mar*100).toFixed(0);
-      const up = may >= mar;
-      chgLabel = `<span class="trend ${up?'trend-up':'trend-down'}">${up?'\u2191':'\u2193'} ${Math.abs(chg)}% Mar\u2192May</span>`;
+    if (firstMonth && lastMonth && firstMonth !== lastMonth) {
+      const firstCount = rows.filter(r=>r.month===firstMonth&&r.is_breach).length;
+      const lastCount = rows.filter(r=>r.month===lastMonth&&r.is_breach).length;
+      if (firstCount > 0) {
+        const chg = ((lastCount - firstCount) / firstCount * 100).toFixed(0);
+        const up = lastCount >= firstCount;
+        chgLabel = `<span class="trend ${up?'trend-up':'trend-down'}">${up?'\u2191':'\u2193'} ${Math.abs(chg)}% ${firstMonth.slice(0,3)}\u2192${lastMonth.slice(0,3)}</span>`;
+      }
     }
     const color = SLA_COLORS[sla] || '#01696f';
     return `<article class="kpi-card" style="--accent:${color}">
@@ -492,6 +504,8 @@ function buildTopicChart() {
 // ─── PHASE 3: ALERT ENGINE ──────────────────────────────────────────────────
 function buildAlerts() {
   const cards = [];
+  const firstMonth = MONTHS[0];
+  const lastMonth = MONTHS[MONTHS.length - 1];
   const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
   codes.forEach(sla => {
     const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(Boolean);
@@ -500,16 +514,15 @@ function buildAlerts() {
       const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
       if (!total) return;
       const rate = (breaches / total) * 100;
-      const mar = recs.filter(r => r.month === 'March' && r.is_breach).length;
-      const may = recs.filter(r => r.month === 'May' && r.is_breach).length;
-      const mayTotal = recs.filter(r => r.month === 'May').length;
-      const mom = mar > 0 ? ((may - mar) / mar) * 100 : null;
-      const isNewInMay = !recs.some(r => r.month !== 'May') && may > 5;
+      const firstCount = firstMonth ? recs.filter(r => r.month === firstMonth && r.is_breach).length : 0;
+      const lastCount = lastMonth ? recs.filter(r => r.month === lastMonth && r.is_breach).length : 0;
+      const mom = (firstMonth && lastMonth && firstMonth !== lastMonth && firstCount > 0) ? ((lastCount - firstCount) / firstCount) * 100 : null;
+      const isNewInLast = !recs.some(r => r.month !== lastMonth) && lastCount > 5;
       let sev = null, reason = '';
       if (rate > 10 && mom !== null && mom > 25) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% with +${mom.toFixed(0)}% MoM increase.`; }
       else if (rate > 10) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% exceeds 10% threshold.`; }
-      else if (mom !== null && mom > 25) { sev = 'watch'; reason = `MoM increase of +${mom.toFixed(0)}% (Mar→May).`; }
-      else if (isNewInMay) { sev = 'watch'; reason = `New language in May with ${may} breaches (spike detected).`; }
+      else if (mom !== null && mom > 25) { sev = 'watch'; reason = `MoM increase of +${mom.toFixed(0)}% (${firstMonth}\u2192${lastMonth}).`; }
+      else if (isNewInLast) { sev = 'watch'; reason = `New language in ${lastMonth} with ${lastCount} breaches (spike detected).`; }
       if (!sev) return;
       const action = sev === 'critical'
         ? `Escalate ${sla} for ${lang}: assign queue lead review, target <5% breach rate by next cycle.`
@@ -534,6 +547,7 @@ function buildAlerts() {
   }
   buildActionPlan(cards);
 }
+
 function buildActionPlan(cards) {
   const now = new Date().toLocaleDateString('en-GB');
   const critical = cards.filter(c => c.sev === 'critical');
@@ -550,6 +564,7 @@ function buildActionPlan(cards) {
   if (!cards.length) text += 'No alert conditions detected. All SLA + language combinations within normal range.\n';
   document.getElementById('actionPlanText').value = text;
 }
+
 // ─── PHASE 3: EXPORT FUNCTIONS ───────────────────────────────────────────────
 function downloadCSV() {
   const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
@@ -558,19 +573,23 @@ function downloadCSV() {
   a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
   a.download = 'breach-analysis-export.csv'; a.click();
 }
+
 function downloadChartPNG() {
+  // Downloads the breach trend chart (trendChart)
   const canvas = document.getElementById('trendChart');
   if (!canvas) return;
   const a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
   a.download = 'breach-trend-chart.png'; a.click();
 }
+
 function printActionPlan() {
   const text = document.getElementById('actionPlanText').value;
   const w = window.open('', '_blank');
   w.document.write(`<html><head><title>Breach Action Plan</title><style>body{font-family:monospace;white-space:pre-wrap;padding:2rem;font-size:13px}</style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
   w.document.close(); w.print();
 }
+
 // ─── TAB LOGIC ────────────────────────────────────────────────────────────────
 function showTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
@@ -580,7 +599,10 @@ function showTab(name) {
 }
 
 document.getElementById('tabBar').addEventListener('click', e => {
-    if (e.target.dataset.tab) { showTab(e.target.dataset.tab); if (e.target.dataset.tab === 'alerts' || e.target.dataset.tab === 'actionplan') buildAlerts(); }
+  if (e.target.dataset.tab) {
+    showTab(e.target.dataset.tab);
+    if (e.target.dataset.tab === 'alerts' || e.target.dataset.tab === 'actionplan') buildAlerts();
+  }
 });
 
 // ─── MONTH FILTER ─────────────────────────────────────────────────────────────
@@ -622,7 +644,8 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
       const ab = await file.arrayBuffer();
       const wb = XLSX.read(ab, { type: 'array', cellDates: true });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' }); const csv = Papa.unparse(rows);
+      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+      const csv = Papa.unparse(rows);
       csvRecords.push(...parse3093Csv(file.name, csv));
     } else {
       const text = await file.text();
@@ -636,10 +659,7 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
 // ─── RUN ──────────────────────────────────────────────────────────────────────
 document.getElementById('runMerge').addEventListener('click', () => {
   allRecords = [...v2Records, ...csvRecords];
-  console.log('DEBUG v2Records:', v2Records.length, v2Records[0]);
-  console.log('DEBUG csvRecords:', csvRecords.length, csvRecords[0]);
-  console.log('DEBUG allRecords:', allRecords.length);
-    rebuildMonths(allRecords);
+  rebuildMonths(allRecords);
   document.getElementById('recordCount').textContent =
     `${allRecords.length.toLocaleString()} total records — ${allRecords.filter(r=>r.is_breach).length.toLocaleString()} breaches`;
 
@@ -651,39 +671,39 @@ document.getElementById('runMerge').addEventListener('click', () => {
   buildMissingKslCards();
   buildMissingTrendChart();
   buildQueueChart();
-    buildTopicChart();
+  buildTopicChart();
 
   document.getElementById('tabBar').hidden = false;
   showTab('overview');
-    buildAlerts();
+  buildAlerts();
 });
-// ─── INTEGRITY GUARD ────────────────────────────────────────────────────────────────
+
+// ─── INTEGRITY GUARD ─────────────────────────────────────────────────────────
 (function _integrityGuard() {
-    const errors = [];
-      // 1. Check for duplicate element IDs (catches copy-paste duplication bugs)
-          const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart','heatmapTable','langChart','missingKslCards','missingTrendChart','queueChart','topicChart','runMerge','v2Files','csvFiles','v2Status','csvStatus','recordCount','monthFilter','langMonthFilter','tab-overview','tab-language','tab-missing','tab-queue','tab-alerts','tab-actionplan'];
-          criticalIds.forEach(id => {
-                const matches = document.querySelectorAll('[id="' + id + '"]');
-                    if (matches.length > 1) errors.push('DUPLICATE ID #' + id + ' appears ' + matches.length + 'x — likely a copy-paste bug.');
-                        if (matches.length === 0) errors.push('MISSING ELEMENT #' + id + ' — required DOM node not found.');
-                          });
-                            // 2. Check required functions exist in scope (catches JS-outside-script bugs)
-                              const requiredFns = ['buildAlerts','buildActionPlan','downloadCSV','downloadChartPNG','printActionPlan','showTab','buildKpiGrid','buildTrendChart'];
-                                requiredFns.forEach(fn => {
-                                      if (typeof window[fn] !== 'function') errors.push('MISSING FUNCTION ' + fn + '() — JS may be outside <script> tag or was never defined.');
-                                          });
-                                            // 3. Check tab buttons match tab panels (count parity)
-                                              const btnCount = document.querySelectorAll('.tab-btn').length;
-                                                const panelCount = document.querySelectorAll('.tab-panel').length;
-                                                  if (btnCount !== panelCount) errors.push('TAB MISMATCH: ' + btnCount + ' buttons but ' + panelCount + ' panels — a tab section may be duplicated or missing.');
-                                                    // 4. Surface errors visibly in the UI and console
-                                                      if (errors.length === 0) { console.log('%c✅ Integrity check passed — all DOM elements and functions present, no duplicates.', 'color:green;font-weight:bold'); return; }
-                                                        // Errors found — log to console and show a visible banner in the page
-                                                          console.error('❌ Breaches Overview — Integrity Check FAILED:\n' + errors.join('\n'));
-                                                            const banner = document.createElement('div');
-                                                              banner.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:9999;background:#a13544;color:#fff;font-family:monospace;font-size:13px;padding:12px 16px;line-height:1.6;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.4)');
-                                                                  banner.textContent = '❌ INTEGRITY CHECK FAILED — ' + errors.length + ' issue(s) detected:\n' + errors.map(function(e,i){ return (i+1) + '. ' + e; }).join('\n');
-  })();
+  const errors = [];
+  const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart','heatmapTable','langChart','missingKslCards','missingTrendChart','queueChart','topicChart','runMerge','v2Files','csvFiles','v2Status','csvStatus','recordCount','monthFilter','langMonthFilter','tab-overview','tab-language','tab-missing','tab-queue','tab-alerts','tab-actionplan'];
+  criticalIds.forEach(id => {
+    const matches = document.querySelectorAll('[id="' + id + '"]');
+    if (matches.length > 1) errors.push('DUPLICATE ID #' + id + ' appears ' + matches.length + 'x — likely a copy-paste bug.');
+    if (matches.length === 0) errors.push('MISSING ELEMENT #' + id + ' — required DOM node not found.');
+  });
+  const requiredFns = ['buildAlerts','buildActionPlan','downloadCSV','downloadChartPNG','printActionPlan','showTab','buildKpiGrid','buildTrendChart'];
+  requiredFns.forEach(fn => {
+    if (typeof window[fn] !== 'function') errors.push('MISSING FUNCTION ' + fn + '() — JS may be outside <script> tag or was never defined.');
+  });
+  const btnCount = document.querySelectorAll('.tab-btn').length;
+  const panelCount = document.querySelectorAll('.tab-panel').length;
+  if (btnCount !== panelCount) errors.push('TAB MISMATCH: ' + btnCount + ' buttons but ' + panelCount + ' panels — a tab section may be duplicated or missing.');
+  if (errors.length === 0) {
+    console.log('%c✅ Integrity check passed — all DOM elements and functions present, no duplicates.', 'color:green;font-weight:bold');
+    return;
+  }
+  console.error('❌ Breaches Overview — Integrity Check FAILED:\n' + errors.join('\n'));
+  const banner = document.createElement('div');
+  banner.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:9999;background:#a13544;color:#fff;font-family:monospace;font-size:13px;padding:12px 16px;line-height:1.6;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.4)');
+  banner.textContent = '❌ INTEGRITY CHECK FAILED — ' + errors.length + ' issue(s) detected:\n' + errors.map(function(e,i){ return (i+1) + '. ' + e; }).join('\n');
+  document.body.appendChild(banner);
+})();
 
 // ─── THEME TOGGLE ────────────────────────────────────────────────────────────
 (function(){
