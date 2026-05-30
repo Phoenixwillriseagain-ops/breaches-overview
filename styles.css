@@ -179,3 +179,17 @@ a { color: inherit; text-decoration: none; }
   .chart-grid { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+
+/* ── PHASE 3: ALERT ENGINE ────────────────────────── */
+.alert-grid { display: flex; flex-direction: column; gap: 12px; }
+.alert-card { display: flex; align-items: flex-start; gap: 14px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
+.alert-card.alert-critical { border-left: 4px solid #d163a7; background: color-mix(in srgb,#d163a7 6%,var(--surface)); }
+.alert-card.alert-watch { border-left: 4px solid #d19900; background: color-mix(in srgb,#d19900 6%,var(--surface)); }
+.alert-card.alert-stable { border-left: 4px solid #6daa45; background: color-mix(in srgb,#6daa45 6%,var(--surface)); }
+.alert-badge { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.badge-critical { background: color-mix(in srgb,#d163a7 18%,transparent); color: #d163a7; }
+.badge-watch { background: color-mix(in srgb,#d19900 18%,transparent); color: #d19900; }
+.badge-stable { background: color-mix(in srgb,#6daa45 18%,transparent); color: #6daa45; }
+.alert-card p { margin: 4px 0 0; font-size: 0.83rem; color: var(--text); }
+.alert-card strong { font-size: 0.9rem; }
