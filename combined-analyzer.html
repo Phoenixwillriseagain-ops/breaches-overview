@@ -226,6 +226,7 @@ const COL_MAP = {
 };
 
 function parse3093Csv(fileName, text) {
+  console.log('CSV HEADERS:', result.meta.fields); console.log('FIRST ROW iso_language:', result.data[0] && result.data[0]['Incident Element Supportsprache']);
   const result = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false });
   return result.data.map(raw => {
     const row = {};
