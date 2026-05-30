@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-    <link rel="icon" href="data:,">
+  <link rel="icon" href="data:,">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Combined Analyzer — Breaches Overview</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,9 +74,6 @@
     <div class="panel">
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem" id="monthFilter">
         <button class="pill active" data-month="all">All months</button>
-        <button class="pill" data-month="March">March</button>
-        <button class="pill" data-month="April">April</button>
-        <button class="pill" data-month="May">May</button>
       </div>
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
@@ -94,12 +91,9 @@
   <section class="tab-panel" id="tab-language" hidden>
     <div class="panel">
       <h2>Language Breach Heatmap</h2>
-      <p class="muted">Breach rate per language + SLA combination (3093 sources only).</p>
+      <p class="muted">Breach rate per language + SLA combination.</p>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem" id="langMonthFilter">
         <button class="pill active" data-lmonth="all">All months</button>
-        <button class="pill" data-lmonth="March">March</button>
-        <button class="pill" data-lmonth="April">April</button>
-        <button class="pill" data-lmonth="May">May</button>
       </div>
       <div style="overflow-x:auto">
         <table id="heatmapTable" class="data-table"></table>
@@ -161,8 +155,9 @@
 
 <script>
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-let MONTHS = ['March', 'April', 'May']; // dynamic — rebuilt after file parse
+let MONTHS = [];
 const MISSING_KSLS = ['KSL-2a', 'KSL-2b', 'KSL-2c', 'KSL-3a', 'KSL-5b', 'KSL-6'];
+const DATE_LIKE = /^\d{4}-\d{2}-\d{2}|^\d{1,2}\/\d{1,2}\/\d{2,4}/;
 
 function detectMonthFromFilename(name = '') {
   const l = name.toLowerCase();
@@ -177,7 +172,9 @@ function detectMonthFromFilename(name = '') {
 
 function monthFromDate(value) {
   if (!value) return null;
-  const str = String(value).replace(/\//g, '-');
+  // Normalise: replace space separator with T, replace / with - for ISO parsing
+  // Safari/Firefox reject 'YYYY-MM-DD HH:MM:SS' without the T separator
+  const str = String(value).replace(/\//g, '-').replace(' ', 'T');
   const d = new Date(str);
   if (isNaN(d.getTime())) return null;
   const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -192,11 +189,9 @@ function toNum(v) {
 }
 
 // ─── V2 PARSER ────────────────────────────────────────────────────────────────
-// Accepted date column names (case-insensitive match via normalised header)
 const V2_DATE_COLS = ['date closed', 'date_close', 'date_closed', 'date close', 'date_time_close', 'date_time_closed'];
 
-function getV2DateValue(item, headers) {
-  // Try exact known header variations first
+function getV2DateValue(item) {
   for (const key of Object.keys(item)) {
     if (V2_DATE_COLS.includes(key.toLowerCase().trim())) return item[key];
   }
@@ -216,32 +211,38 @@ function parseV2Workbook(fileName, workbook) {
       const item = Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']));
       if (!String(item['Incident Ticket']||'').startsWith('INC')) return;
       const excluded = Number(item.Excluded || 0) === 1;
-      const dateVal = getV2DateValue(item, headers);
+      const dateVal = getV2DateValue(item);
       records.push({
         source: 'V2',
         month: monthFromDate(dateVal) || fallbackMonth,
         sla_code: sheetName,
         incident_ticket: item['Incident Ticket'] || '',
-        queue: item.Queue || '', queue_normalized: normalizeQueue(item.Queue || ''),
+        queue: item.Queue || '',
+        queue_normalized: normalizeQueue(item.Queue || ''),
         iso_language: item.ISO_Language || item.iso_language || item['ISO Language'] || '',
+        language_name: '',
         topic: item.TOPIC || item.Topic || item.topic || '',
-        excluded, is_breach: !excluded
+        excluded,
+        is_breach: !excluded
       });
     });
   });
   return records;
 }
 
-// ─── CSV PARSER ───────────────────────────────────────────────────────────────
+// ─── CSV/XLSX PARSER (3093 format) ──────────────────────────────────────────────
 const COL_MAP = {
-  'SLA Kennzahl': 'sla_code', 'SLA Kennzahl Name': 'sla_name',
+  'SLA Kennzahl': 'sla_code',
+  'SLA Kennzahl Name': 'sla_name',
   'SLA Kennzahl Vergleichsart': 'compare_dir',
   'Anzahl SLAs Kennzahl Z\u00e4hler vor SR': 'numerator',
   'Anzahl SLAs Kennzahl Nenner vor SR': 'denominator',
-  'Element geschlossen am': 'date_closed', 'Element Status': 'status',
+  'Element geschlossen am': 'date_closed',
+  'Element Status': 'status',
   'Incident Element Supportsprache': 'iso_language',
   'Incident Element Supportsprache Name EN': 'language_name',
-  'Incident Ticket': 'incident_ticket', 'Ticket Gruppe': 'queue',
+  'Incident Ticket': 'incident_ticket',
+  'Ticket Gruppe': 'queue',
   'KM Anwendung': 'topic'
 };
 
@@ -250,13 +251,15 @@ function parse3093Csv(fileName, text) {
   return result.data.map(raw => {
     const row = {};
     Object.entries(COL_MAP).forEach(([src, tgt]) => { row[tgt] = raw[src] ?? ''; });
+    // Skip rows with no SLA code (malformed / header mismatch)
+    if (!row.sla_code) return null;
     const num = toNum(row.numerator), den = toNum(row.denominator), dir = toNum(row.compare_dir);
     let isBreach = false;
     if (dir === 1) isBreach = num < den;
     if (dir === -1) isBreach = num > 0;
-    const month = monthFromDate(row.date_closed);
     return {
-      source: '3093', file_name: fileName, month,
+      source: '3093', file_name: fileName,
+      month: monthFromDate(row.date_closed),
       sla_code: row.sla_code, sla_name: row.sla_name,
       incident_ticket: row.incident_ticket, status: row.status,
       queue: row.queue, queue_normalized: normalizeQueue(row.queue),
@@ -316,7 +319,7 @@ const SLA_COLORS = {
 
 function buildKpiGrid(records) {
   const grid = document.getElementById('kpiGrid');
-  const slaCodes = [...new Set(records.map(r => r.sla_code))].sort();
+  const slaCodes = [...new Set(records.map(r => r.sla_code).filter(Boolean))].sort();
   const firstMonth = MONTHS[0];
   const lastMonth = MONTHS[MONTHS.length - 1];
   grid.innerHTML = slaCodes.map(sla => {
@@ -326,7 +329,7 @@ function buildKpiGrid(records) {
     const rate = total ? ((breaches / total) * 100).toFixed(1) : '0.0';
     const color = SLA_COLORS[sla] || '#01696f';
     let arrow = '';
-    if (MISSING_KSLS.includes(sla) && firstMonth && lastMonth && firstMonth !== lastMonth) {
+    if (firstMonth && lastMonth && firstMonth !== lastMonth) {
       const first = records.filter(r => r.sla_code === sla && r.month === firstMonth && r.is_breach).length;
       const last = records.filter(r => r.sla_code === sla && r.month === lastMonth && r.is_breach).length;
       if (first > 0) {
@@ -345,7 +348,7 @@ function buildKpiGrid(records) {
 
 // ─── TREND CHART ──────────────────────────────────────────────────────────────
 function buildTrendChart() {
-  const slaCodes = [...new Set(allRecords.map(r => r.sla_code))].sort();
+  const slaCodes = [...new Set(allRecords.map(r => r.sla_code).filter(Boolean))].sort();
   const datasets = slaCodes.map(sla => ({
     label: sla,
     data: MONTHS.map(m => allRecords.filter(r => r.sla_code === sla && r.month === m && r.is_breach).length),
@@ -382,10 +385,21 @@ function buildSourceChart() {
 
 // ─── LANGUAGE HEATMAP ────────────────────────────────────────────────────────
 function buildHeatmap(monthFilter = 'all') {
-  const src = allRecords.filter(r => r.source === '3093' && MISSING_KSLS.includes(r.sla_code) && (monthFilter === 'all' || r.month === monthFilter));
-  const langs = [...new Set(src.map(r => r.iso_language))].filter(Boolean).sort();
+  // Include both 3093 and V2 sources that carry iso_language
+  const src = allRecords.filter(r =>
+    MISSING_KSLS.includes(r.sla_code) &&
+    (monthFilter === 'all' || r.month === monthFilter)
+  );
+  // Pre-filter: remove date-like or empty language values
+  const langs = [...new Set(src.map(r => r.iso_language))]
+    .filter(l => l && !DATE_LIKE.test(l))
+    .sort();
   const slaCols = MISSING_KSLS.filter(s => src.some(r => r.sla_code === s));
   const table = document.getElementById('heatmapTable');
+  if (!langs.length || !slaCols.length) {
+    table.innerHTML = '<tbody><tr><td class="muted" colspan="99">No language data available for the selected filter.</td></tr></tbody>';
+    return;
+  }
   const header = `<thead><tr><th>Language</th>${slaCols.map(s=>`<th>${s}</th>`).join('')}<th>Total breaches</th></tr></thead>`;
   const rows = langs.map(lang => {
     const cells = slaCols.map(sla => {
@@ -397,19 +411,16 @@ function buildHeatmap(monthFilter = 'all') {
       return `<td style="${bg};color:${rate>12?'#fff':'inherit'}" title="${breaches}/${total}">${text}</td>`;
     });
     const totalB = src.filter(r => r.iso_language === lang && r.is_breach).length;
-    // Filter out any lang value that looks like a date string
-    if (/^\d{4}-\d{2}-\d{2}/.test(lang) || /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(lang)) return '';
     return `<tr><td><strong>${lang}</strong></td>${cells.join('')}<td><strong>${totalB}</strong></td></tr>`;
-  }).filter(Boolean);
+  });
   table.innerHTML = header + `<tbody>${rows.join('')}</tbody>`;
 }
 
 // ─── LANGUAGE BAR CHART ──────────────────────────────────────────────────────
 function buildLangChart() {
-  // Exclude any iso_language values that look like dates
-  const breachRecs = allRecords.filter(r => r.is_breach && r.iso_language &&
-    !/^\d{4}-\d{2}-\d{2}/.test(r.iso_language) &&
-    !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(r.iso_language));
+  const breachRecs = allRecords.filter(r =>
+    r.is_breach && r.iso_language && !DATE_LIKE.test(r.iso_language)
+  );
   const counts = {};
   breachRecs.forEach(r => { counts[r.iso_language] = (counts[r.iso_language]||0)+1; });
   const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,14);
@@ -442,9 +453,11 @@ function buildMissingKslCards() {
     const rows = src.filter(r => r.sla_code === sla);
     const total = rows.length, breaches = rows.filter(r=>r.is_breach).length;
     const rate = total ? (breaches/total*100).toFixed(1) : '0.0';
-    const mar = rows.filter(r=>r.month==='March'&&r.is_breach).length;
-    const apr = rows.filter(r=>r.month==='April'&&r.is_breach).length;
-    const may = rows.filter(r=>r.month==='May'&&r.is_breach).length;
+    // Dynamic mini-bars: use actual MONTHS array (not hardcoded Mar/Apr/May)
+    const miniBars = MONTHS.map(m => {
+      const v = rows.filter(r=>r.month===m&&r.is_breach).length;
+      return `<span class="mini-bar-wrap"><span class="mini-bar" style="height:${Math.min(v*4,56)}px;background:${SLA_COLORS[sla]||'#01696f'}"></span><span class="mini-label">${m.slice(0,3)}<br>${v}</span></span>`;
+    }).join('');
     let chgLabel = '';
     if (firstMonth && lastMonth && firstMonth !== lastMonth) {
       const firstCount = rows.filter(r=>r.month===firstMonth&&r.is_breach).length;
@@ -461,9 +474,7 @@ function buildMissingKslCards() {
       <p class="kpi-desc muted">${KSL_DESC[sla]||''}</p>
       <p class="kpi-value">${rate}%<span style="font-size:14px;font-weight:400"> breach rate</span></p>
       <p class="kpi-sub">${breaches} breaches / ${total} total ${chgLabel}</p>
-      <div class="mini-bars">
-        ${[['Mar',mar],['Apr',apr],['May',may]].map(([l,v])=>`<span class="mini-bar-wrap"><span class="mini-bar" style="height:${Math.min(v*4,56)}px;background:${color}"></span><span class="mini-label">${l}<br>${v}</span></span>`).join('')}
-      </div>
+      <div class="mini-bars">${miniBars}</div>
     </article>`;
   }).join('');
 }
@@ -520,14 +531,16 @@ function buildTopicChart() {
   });
 }
 
-// ─── PHASE 3: ALERT ENGINE ──────────────────────────────────────────────────
+// ─── ALERT ENGINE ───────────────────────────────────────────────────────────────
 function buildAlerts() {
   const cards = [];
   const firstMonth = MONTHS[0];
   const lastMonth = MONTHS[MONTHS.length - 1];
-  const codes = [...new Set(allRecords.map(r => r.sla_code))].filter(Boolean);
+  const codes = [...new Set(allRecords.map(r => r.sla_code).filter(Boolean))];
   codes.forEach(sla => {
-    const langs = [...new Set(allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language))].filter(l => l && !/^\d{4}-\d{2}-\d{2}/.test(l) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(l));
+    const langs = [...new Set(
+      allRecords.filter(r => r.sla_code === sla).map(r => r.iso_language)
+    )].filter(l => l && !DATE_LIKE.test(l));
     langs.forEach(lang => {
       const recs = allRecords.filter(r => r.sla_code === sla && r.iso_language === lang);
       const total = recs.length, breaches = recs.filter(r => r.is_breach).length;
@@ -535,7 +548,8 @@ function buildAlerts() {
       const rate = (breaches / total) * 100;
       const firstCount = firstMonth ? recs.filter(r => r.month === firstMonth && r.is_breach).length : 0;
       const lastCount = lastMonth ? recs.filter(r => r.month === lastMonth && r.is_breach).length : 0;
-      const mom = (firstMonth && lastMonth && firstMonth !== lastMonth && firstCount > 0) ? ((lastCount - firstCount) / firstCount) * 100 : null;
+      const mom = (firstMonth && lastMonth && firstMonth !== lastMonth && firstCount > 0)
+        ? ((lastCount - firstCount) / firstCount) * 100 : null;
       const isNewInLast = !recs.some(r => r.month !== lastMonth) && lastCount > 5;
       let sev = null, reason = '';
       if (rate > 10 && mom !== null && mom > 25) { sev = 'critical'; reason = `Breach rate ${rate.toFixed(1)}% with +${mom.toFixed(0)}% MoM increase.`; }
@@ -584,28 +598,40 @@ function buildActionPlan(cards) {
   document.getElementById('actionPlanText').value = text;
 }
 
-// ─── PHASE 3: EXPORT FUNCTIONS ───────────────────────────────────────────────
+// ─── EXPORT FUNCTIONS ───────────────────────────────────────────────────────────
 function downloadCSV() {
   const cols = ['month','sla_code','source','iso_language','language_name','queue','incident_ticket','status','is_breach'];
   const rows = [cols.join(','), ...allRecords.map(r => cols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))];
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([rows.join('\n')], {type:'text/csv'}));
-  a.download = 'breach-analysis-export.csv'; a.click();
+  a.href = url;
+  a.download = 'breach-analysis-export.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 function downloadChartPNG() {
   const canvas = document.getElementById('trendChart');
   if (!canvas) return;
+  const url = canvas.toDataURL('image/png');
   const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = 'breach-trend-chart.png'; a.click();
+  a.href = url;
+  a.download = 'breach-trend-chart.png';
+  a.click();
+  // Canvas data URLs don't need revoking (not a blob URL)
 }
 
 function printActionPlan() {
   const text = document.getElementById('actionPlanText').value;
   const w = window.open('', '_blank');
+  if (!w) {
+    alert('Pop-up blocked. Please allow pop-ups for this page to print the action plan.');
+    return;
+  }
   w.document.write(`<html><head><title>Breach Action Plan</title><style>body{font-family:monospace;white-space:pre-wrap;padding:2rem;font-size:13px}</style></head><body>${text.replace(/</g,'&lt;')}</body></html>`);
-  w.document.close(); w.print();
+  w.document.close();
+  w.print();
 }
 
 // ─── TAB LOGIC ────────────────────────────────────────────────────────────────
@@ -677,6 +703,10 @@ document.getElementById('csvFiles').addEventListener('change', async e => {
 // ─── RUN ──────────────────────────────────────────────────────────────────────
 document.getElementById('runMerge').addEventListener('click', () => {
   allRecords = [...v2Records, ...csvRecords];
+  // Reset filter state on every fresh run
+  activeMonth = 'all';
+  activeLangMonth = 'all';
+
   rebuildMonths(allRecords);
   document.getElementById('recordCount').textContent =
     `${allRecords.length.toLocaleString()} total records — ${allRecords.filter(r=>r.is_breach).length.toLocaleString()} breaches`;
@@ -699,27 +729,31 @@ document.getElementById('runMerge').addEventListener('click', () => {
 // ─── INTEGRITY GUARD ─────────────────────────────────────────────────────────
 (function _integrityGuard() {
   const errors = [];
-  const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart','heatmapTable','langChart','missingKslCards','missingTrendChart','queueChart','topicChart','runMerge','v2Files','csvFiles','v2Status','csvStatus','recordCount','monthFilter','langMonthFilter','tab-overview','tab-language','tab-missing','tab-queue','tab-alerts','tab-actionplan'];
+  const criticalIds = ['alertCards','actionPlanText','tabBar','kpiGrid','trendChart','sourceChart',
+    'heatmapTable','langChart','missingKslCards','missingTrendChart','queueChart','topicChart',
+    'runMerge','v2Files','csvFiles','v2Status','csvStatus','recordCount',
+    'monthFilter','langMonthFilter',
+    'tab-overview','tab-language','tab-missing','tab-queue','tab-alerts','tab-actionplan'];
   criticalIds.forEach(id => {
     const matches = document.querySelectorAll('[id="' + id + '"]');
-    if (matches.length > 1) errors.push('DUPLICATE ID #' + id + ' appears ' + matches.length + 'x — likely a copy-paste bug.');
-    if (matches.length === 0) errors.push('MISSING ELEMENT #' + id + ' — required DOM node not found.');
+    if (matches.length > 1) errors.push('DUPLICATE ID #' + id + ' appears ' + matches.length + 'x');
+    if (matches.length === 0) errors.push('MISSING ELEMENT #' + id);
   });
   const requiredFns = ['buildAlerts','buildActionPlan','downloadCSV','downloadChartPNG','printActionPlan','showTab','buildKpiGrid','buildTrendChart'];
   requiredFns.forEach(fn => {
-    if (typeof window[fn] !== 'function') errors.push('MISSING FUNCTION ' + fn + '() — JS may be outside <script> tag or was never defined.');
+    if (typeof window[fn] !== 'function') errors.push('MISSING FUNCTION ' + fn + '()');
   });
   const btnCount = document.querySelectorAll('.tab-btn').length;
   const panelCount = document.querySelectorAll('.tab-panel').length;
-  if (btnCount !== panelCount) errors.push('TAB MISMATCH: ' + btnCount + ' buttons but ' + panelCount + ' panels — a tab section may be duplicated or missing.');
+  if (btnCount !== panelCount) errors.push('TAB MISMATCH: ' + btnCount + ' buttons vs ' + panelCount + ' panels');
   if (errors.length === 0) {
-    console.log('%c✅ Integrity check passed — all DOM elements and functions present, no duplicates.', 'color:green;font-weight:bold');
+    console.log('%c\u2705 Integrity check passed', 'color:green;font-weight:bold');
     return;
   }
-  console.error('❌ Breaches Overview — Integrity Check FAILED:\n' + errors.join('\n'));
+  console.error('\u274c Integrity Check FAILED:\n' + errors.join('\n'));
   const banner = document.createElement('div');
   banner.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:9999;background:#a13544;color:#fff;font-family:monospace;font-size:13px;padding:12px 16px;line-height:1.6;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,.4)');
-  banner.textContent = '❌ INTEGRITY CHECK FAILED — ' + errors.length + ' issue(s) detected:\n' + errors.map(function(e,i){ return (i+1) + '. ' + e; }).join('\n');
+  banner.textContent = '\u274c INTEGRITY CHECK FAILED \u2014 ' + errors.length + ' issue(s):\n' + errors.map((e,i) => (i+1)+'. '+e).join('\n');
   document.body.appendChild(banner);
 })();
 
