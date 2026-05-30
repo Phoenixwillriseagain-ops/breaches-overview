@@ -235,7 +235,7 @@ function parse3093Csv(fileName, text) {
     if (dir === 1) isBreach = num < den;
     if (dir === -1) isBreach = num > 0;
     const month = monthFromDate(row.date_closed);
-    if (!MONTHS.includes(month)) return null;
+    
     return {
       source: '3093', file_name: fileName, month,
       sla_code: row.sla_code, sla_name: row.sla_name,
